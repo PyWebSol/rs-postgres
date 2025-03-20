@@ -45,9 +45,11 @@ impl App for Main {
         self.load_config();
 
         let server_icon = egui::Image::new(icons::SERVER)
-            .max_size(egui::vec2(24.0, 24.0));
+            .max_size(egui::vec2(32.0, 32.0));
         let database_icon = egui::Image::new(icons::DATABASE)
-            .max_size(egui::vec2(24.0, 24.0));
+            .max_size(egui::vec2(32.0, 32.0));
+        let plus_icon = egui::Image::new(icons::PLUS)
+            .max_size(egui::vec2(32.0, 32.0));
 
         CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
