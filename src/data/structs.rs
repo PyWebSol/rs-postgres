@@ -60,3 +60,7 @@ impl DeleteServerWindow {
         }
     }
 }
+
+pub struct Icons<'a> {
+    pub warning: egui::Image<'a>,
+}
