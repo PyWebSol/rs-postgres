@@ -236,7 +236,10 @@ impl App for Main<'_> {
                                 Some(DbState::Loading) => {
                                     ui.add(Spinner::new());
 
-                                    None
+                                    Some(ui.label(format!(
+                                        "{} ({}:{})",
+                                        server.alias, server.ip, server.port
+                                    )))
                                 }
                                 Some(DbState::Loaded(_db)) => {
                                     Some(CollapsingHeader::new(format!(
@@ -304,7 +307,7 @@ impl App for Main<'_> {
                     }
                 });
 
-            ui.label("");
+            ui.separator();
 
             if ui.button("Add server").clicked() {
                 self.add_server_window.show = true;
