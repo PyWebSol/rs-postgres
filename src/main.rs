@@ -1,6 +1,7 @@
 mod frames;
 mod data;
 mod utils;
+mod database;
 
 use eframe::NativeOptions;
 

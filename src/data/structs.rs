@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub servers: Vec<Server>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Server {
     pub alias: String,
     pub ip: String,
@@ -16,7 +16,7 @@ pub struct Server {
 }
 
 impl Config {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         Self {
             servers: Vec::new()
         }
@@ -34,7 +34,7 @@ pub struct AddServerWindow {
 }
 
 impl AddServerWindow {
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         Self {
             show: false,
             name_field: String::new(),
@@ -43,6 +43,20 @@ impl AddServerWindow {
             user_field: String::new(),
             password_field: String::new(),
             service_database_field: String::from("postgres"),
+        }
+    }
+}
+
+pub struct DeleteServerWindow {
+    pub show: bool,
+    pub server: Option<Server>,
+}
+
+impl DeleteServerWindow {
+    pub fn default() -> Self {
+        Self {
+            show: false,
+            server: None,
         }
     }
 }
