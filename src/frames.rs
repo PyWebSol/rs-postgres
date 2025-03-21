@@ -1,6 +1,5 @@
 use crate::data::*;
 use crate::database;
-use crate::utils::SyntaxHighlighter;
 
 use eframe::{egui, App};
 use egui::Widget;
@@ -11,7 +10,6 @@ use egui::{
 use log::{info, error};
 use std::fs as std_fs;
 use std::collections::HashMap;
-use std::ops::Index;
 use std::sync::{Arc, Mutex};
 
 struct DbManager {
@@ -27,7 +25,6 @@ pub struct Main<'a> {
     runtime: tokio::runtime::Runtime,
     pages: structs::Pages,
     actions: Vec<structs::Action>,
-    highlighter: SyntaxHighlighter,
 }
 
 impl Main<'_> {
@@ -51,7 +48,6 @@ impl Main<'_> {
             runtime,
             pages: structs::Pages::default(),
             actions: Vec::new(),
-            highlighter: SyntaxHighlighter::new(),
         };
 
         main.load_config();
@@ -105,34 +101,6 @@ impl Main<'_> {
                 dbs.insert(id, structs::DbState::Error(e.to_string()));
             }
         }
-    }
-
-    fn custom_sql_editor(ui: &mut egui::Ui, highlighter: &SyntaxHighlighter, code: &mut String) {
-        let response = ui.add(
-            TextEdit::multiline(code)
-                .code_editor()
-                .desired_width(f32::INFINITY)
-                .desired_rows(10),
-        );
-    
-        if response.changed() {}
-    
-        let highlighted = highlighter.highlight(code);
-    
-        ui.group(|ui| {
-            for (style, text) in highlighted {
-                let color = Color32::from_rgb(
-                    style.foreground.r,
-                    style.foreground.g,
-                    style.foreground.b,
-                );
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(text).color(color).monospace()
-                    ),
-                );
-            }
-        });
     }
 
     fn update_windows(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -246,7 +214,7 @@ impl Main<'_> {
 
                         let btn = ui.button(&button_title);
                         let btn_id = Id::new(idx);
-                        
+
                         if btn.clicked() {
                             self.pages.current_page_index = idx as u16;
                         }
@@ -262,7 +230,7 @@ impl Main<'_> {
                                 }
                             });
                         }
-                        
+
                         if idx == self.pages.current_page_index as usize {
                             btn.highlight();
                         }
@@ -275,40 +243,53 @@ impl Main<'_> {
             ScrollArea::both()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    if let Some(page) = self.pages.pages.get(self.pages.current_page_index as usize) {
-                        match &page.page_type {
-                            structs::PageType::Welcome => {
-                                ui.vertical(|ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.add(self.icons.rs_postgres.clone());
-                                        ui.heading("Welcome to Rs-Postgres: Rust-based PostgreSQL client.");
-                                    });
+                    if self.pages.current_page_index as usize >= self.pages.pages.len() {
+                        return;
+                    }
+    
+                    let page = &mut self.pages.pages[self.pages.current_page_index as usize];
+    
+                    match &mut page.page_type {
+                        structs::PageType::Welcome => {
+                            ui.vertical(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.add(self.icons.rs_postgres.clone());
+                                    ui.heading("Welcome to Rs-Postgres: Rust-based PostgreSQL client.");
                                 });
-                            },
-                            structs::PageType::SQLQuery(sqlquery_page) => {
-                                ui.vertical(|ui| {
-                                    let mut page_code_content = match &mut self.pages.pages[self.pages.current_page_index as usize].page_type {
-                                        structs::PageType::Welcome => {
-                                            error!("Incorrect page data");
-                                            None
-                                        },
-                                        structs::PageType::SQLQuery(sqlquery_page) => Some(&mut sqlquery_page.code),
-                                    }.unwrap();
+                            });
+                        },
+                        structs::PageType::SQLQuery(sqlquery_page) => {
+                            ui.vertical(|ui| {
+                                if ui.button("Run").clicked() {
+                                    let database = sqlquery_page.database.clone();
+                                    let code = sqlquery_page.code.clone();
+                                    let runtime = &self.runtime;
+    
+                                    sqlquery_page.sql_query_execution_status = Some(structs::SQLQueryExecutionStatus::Running);
+                                    let mut sqlquery_page_clone = sqlquery_page.clone();
+    
+                                    runtime.spawn(async move {
+                                        use structs::SQLQueryExecutionStatus;
 
-                                    if ui.button("Run").clicked() {
-                                        page_code_content.clear();
-                                    }
-                                    ui.add(
-                                        TextEdit::multiline(page_code_content)
-                                            .code_editor()
-                                            .desired_width(f32::INFINITY)
-                                            .desired_rows(10)
-                                            .background_color(Color32::from_hex("#242424").unwrap())
-                                            .hint_text("SELECT * FROM ..."),
-                                    );
-                                });
-                            },
-                        }
+                                        let result = database.execute_query(&code).await;
+                                        let execution_status = match result {
+                                            Ok(result) => SQLQueryExecutionStatus::Success(result),
+                                            Err(e) => SQLQueryExecutionStatus::Error(e.to_string()),
+                                        };
+                                        sqlquery_page_clone.sql_query_execution_status = Some(execution_status.clone());
+                                        info!("SQL query execution status: {:#?}", execution_status);
+                                    });
+                                }
+                                ui.add(
+                                    TextEdit::multiline(&mut sqlquery_page.code)
+                                        .code_editor()
+                                        .desired_width(f32::INFINITY)
+                                        .desired_rows(10)
+                                        .background_color(Color32::from_hex("#242424").unwrap())
+                                        .hint_text("SELECT * FROM ..."),
+                                );
+                            });
+                        },
                     }
                 });
         });
@@ -381,6 +362,7 @@ impl App for Main<'_> {
                                                                 database: _db,
                                                                 code: String::new(),
                                                                 output: None,
+                                                                sql_query_execution_status: None,
                                                             }
                                                         ),
                                                     }

@@ -18,8 +18,13 @@ dirs = "6.0.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 
-sqlx = { version = "0.8.3", features = ["runtime-tokio-native-tls", "postgres"] }
+sqlx = { version = "0.8.3", features = ["runtime-async-std", "postgres", "chrono", "json"] }
 sqlx-postgres = "0.8.3"
 
 log = "0.4.26"
 simple_logger = "5.0.0"
+
+chrono = "0.4.40"
+
+[package.metadata.winresource]
+icon = ["assets/icon.ico"]

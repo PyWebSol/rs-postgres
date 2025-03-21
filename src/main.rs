@@ -11,7 +11,6 @@ fn main() {
     simple_logger::SimpleLogger::new().init().unwrap();
 
     let args: Vec<String> = env::args().collect();
-    log::info!("Args: {:?}", args);
     if args.contains(&String::from("--debug")) {
         log::set_max_level(log::LevelFilter::Debug);
     } else {
@@ -19,7 +18,13 @@ fn main() {
     }
 
     let mut options = NativeOptions::default();
-    options.viewport = egui::ViewportBuilder::default().with_min_inner_size([720.0, 480.0]);
+    options.viewport = egui::ViewportBuilder::default().with_min_inner_size([720.0, 480.0]).with_icon(
+        egui::IconData {
+            rgba: data::icons::RS_POSTGRES_ICO.to_vec(),
+            width: 64,
+            height: 64,
+        }
+    );
 
     eframe::run_native(
         "Rs-Postgres",

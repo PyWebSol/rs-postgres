@@ -75,11 +75,33 @@ pub enum DbState {
     Error(String),
 }
 
+#[derive(Clone, Debug)]
+pub enum SQLQueryExecutionStatus {
+    Running,
+    Success(Vec<HashMap<String, ValueType>>),
+    Error(String),
+}
+
+#[derive(Clone, Debug)]
+pub enum ValueType {
+    Null,
+    Text(String),
+    Int(i32),
+    BigInt(i64),
+    Float(f64),
+    Bool(bool),
+    Bytea(Vec<u8>),
+    Array(Vec<ValueType>),
+    Object(HashMap<String, ValueType>),
+    Unknown(String),
+}
+
 #[derive(Clone)]
 pub struct SQLQueryPage {
     pub database: crate::database::Database,
     pub code: String,
     pub output: Option<HashMap<String, Vec<String>>>,
+    pub sql_query_execution_status: Option<SQLQueryExecutionStatus>,
 }
 
 #[derive(Clone)]
