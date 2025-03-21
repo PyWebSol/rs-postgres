@@ -1,26 +1,21 @@
 use crate::data::*;
 use crate::database;
+use crate::utils::SyntaxHighlighter;
+
 use eframe::{egui, App};
+use egui::Widget;
 use egui::{
-    CentralPanel, Window, SidePanel, Spinner, Layout, Align, TextEdit, Color32, Button,
-    CollapsingHeader, Id, Sense, Grid,
+    Window, SidePanel, Spinner, Layout, Align, TextEdit, Color32, Button,
+    CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea,
 };
 use log::{info, error};
 use std::fs as std_fs;
 use std::collections::HashMap;
+use std::ops::Index;
 use std::sync::{Arc, Mutex};
 
-// Enum to represent the state of a database connection
-#[derive(Clone)]
-enum DbState {
-    Loading,
-    Loaded(database::Database),
-    Error(String),
-}
-
-// Struct to manage shared database state
 struct DbManager {
-    dbs: Arc<Mutex<HashMap<String, DbState>>>,
+    dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
 }
 
 pub struct Main<'a> {
@@ -30,6 +25,9 @@ pub struct Main<'a> {
     delete_server_window: structs::DeleteServerWindow,
     icons: structs::Icons<'a>,
     runtime: tokio::runtime::Runtime,
+    pages: structs::Pages,
+    actions: Vec<structs::Action>,
+    highlighter: SyntaxHighlighter,
 }
 
 impl Main<'_> {
@@ -48,8 +46,12 @@ impl Main<'_> {
             delete_server_window: structs::DeleteServerWindow::default(),
             icons: structs::Icons {
                 warning: egui::Image::new(icons::WARNING).max_size(egui::vec2(32.0, 32.0)),
+                rs_postgres: egui::Image::new(icons::RS_POSTGRES),
             },
             runtime,
+            pages: structs::Pages::default(),
+            actions: Vec::new(),
+            highlighter: SyntaxHighlighter::new(),
         };
 
         main.load_config();
@@ -85,25 +87,53 @@ impl Main<'_> {
         ).unwrap();
     }
 
-    async fn load_db(id: String, server: structs::Server, dbs: Arc<Mutex<HashMap<String, DbState>>>) {
-    info!("Starting to load database for server {}", server.ip);
-    let database_url = format!(
-        "postgres://{}:{}@{}:{}/{}",
-        server.user, server.password, server.ip, server.port, server.service_database
-    );
-    match database::Database::new(&database_url).await {
-        Ok(db) => {
-            info!("Database loaded for server {}", server.ip);
-            let mut dbs = dbs.lock().unwrap();
-            dbs.insert(id, DbState::Loaded(db));
-        }
-        Err(e) => {
-            error!("Error loading database for server {}: {}", server.ip, e);
-            let mut dbs = dbs.lock().unwrap();
-            dbs.insert(id, DbState::Error(e.to_string()));
+    async fn load_db(id: String, server: structs::Server, dbs: Arc<Mutex<HashMap<String, structs::DbState>>>) {
+        info!("Starting to load database for server {}", server.ip);
+        let database_url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            server.user, server.password, server.ip, server.port, server.service_database
+        );
+        match database::Database::new(&database_url).await {
+            Ok(db) => {
+                info!("Database loaded for server {}", server.ip);
+                let mut dbs = dbs.lock().unwrap();
+                dbs.insert(id, structs::DbState::Loaded(db));
+            }
+            Err(e) => {
+                error!("Error loading database for server {}: {}", server.ip, e);
+                let mut dbs = dbs.lock().unwrap();
+                dbs.insert(id, structs::DbState::Error(e.to_string()));
+            }
         }
     }
-}
+
+    fn custom_sql_editor(ui: &mut egui::Ui, highlighter: &SyntaxHighlighter, code: &mut String) {
+        let response = ui.add(
+            TextEdit::multiline(code)
+                .code_editor()
+                .desired_width(f32::INFINITY)
+                .desired_rows(10),
+        );
+    
+        if response.changed() {}
+    
+        let highlighted = highlighter.highlight(code);
+    
+        ui.group(|ui| {
+            for (style, text) in highlighted {
+                let color = Color32::from_rgb(
+                    style.foreground.r,
+                    style.foreground.g,
+                    style.foreground.b,
+                );
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(text).color(color).monospace()
+                    ),
+                );
+            }
+        });
+    }
 
     fn update_windows(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.add_server_window.show {
@@ -203,16 +233,106 @@ impl Main<'_> {
             }
         }
     }
+
+    fn update_pages(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        TopBottomPanel::top("pages_panel").show(ctx, |ui| {
+            ScrollArea::both().show(ui, |ui| {
+                ui.horizontal_top(|ui| {
+                    for (idx, page) in self.pages.pages.iter().enumerate() {
+                        let mut button_title = page.title.clone();
+                        if button_title.len() > 16 {
+                            button_title = format!("{}...", &button_title[0..16]);
+                        }
+
+                        let btn = ui.button(&button_title);
+                        let btn_id = Id::new(idx);
+                        
+                        if btn.clicked() {
+                            self.pages.current_page_index = idx as u16;
+                        }
+                        if btn.secondary_clicked() {
+                            ui.memory_mut(|mem| mem.open_popup(btn_id));
+                        }
+
+                        if ui.memory(|mem| mem.is_popup_open(btn_id)) {
+                            btn.context_menu(|ui| {
+                                if ui.button("Close").clicked() {
+                                    ui.memory_mut(|mem| mem.close_popup());
+                                    self.actions.push(structs::Action::ClosePage(idx));
+                                }
+                            });
+                        }
+                        
+                        if idx == self.pages.current_page_index as usize {
+                            btn.highlight();
+                        }
+                    }
+                });
+            });
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    if let Some(page) = self.pages.pages.get(self.pages.current_page_index as usize) {
+                        match &page.page_type {
+                            structs::PageType::Welcome => {
+                                ui.vertical(|ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.add(self.icons.rs_postgres.clone());
+                                        ui.heading("Welcome to Rs-Postgres: Rust-based PostgreSQL client.");
+                                    });
+                                });
+                            },
+                            structs::PageType::SQLQuery(sqlquery_page) => {
+                                ui.vertical(|ui| {
+                                    let mut page_code_content = match &mut self.pages.pages[self.pages.current_page_index as usize].page_type {
+                                        structs::PageType::Welcome => {
+                                            error!("Incorrect page data");
+                                            None
+                                        },
+                                        structs::PageType::SQLQuery(sqlquery_page) => Some(&mut sqlquery_page.code),
+                                    }.unwrap();
+
+                                    if ui.button("Run").clicked() {
+                                        page_code_content.clear();
+                                    }
+                                    ui.add(
+                                        TextEdit::multiline(page_code_content)
+                                            .code_editor()
+                                            .desired_width(f32::INFINITY)
+                                            .desired_rows(10)
+                                            .background_color(Color32::from_hex("#242424").unwrap())
+                                            .hint_text("SELECT * FROM ..."),
+                                    );
+                                });
+                            },
+                        }
+                    }
+                });
+        });
+
+        let actions = std::mem::take(&mut self.actions);
+        for action in actions {
+            match action {
+                structs::Action::ClosePage(idx) => {
+                    if idx < self.pages.pages.len() {
+                        self.pages.pages.remove(idx);
+                        if self.pages.pages.is_empty() {
+                            self.pages = structs::Pages::default();
+                        } else if self.pages.current_page_index as usize >= self.pages.pages.len() {
+                            self.pages.current_page_index = (self.pages.pages.len() - 1) as u16;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.heading("Rs-Postgres");
-            });
-        });
-
         SidePanel::left("left_panel").show(ctx, |ui| {
             CollapsingHeader::new("Servers")
                 .default_open(true)
@@ -233,7 +353,7 @@ impl App for Main<'_> {
                             let id = Id::new(&id_string);
 
                             let server_button: Option<egui::Response> = match db_state {
-                                Some(DbState::Loading) => {
+                                Some(structs::DbState::Loading) => {
                                     ui.add(Spinner::new());
 
                                     Some(ui.label(format!(
@@ -241,7 +361,7 @@ impl App for Main<'_> {
                                         server.alias, server.ip, server.port
                                     )))
                                 }
-                                Some(DbState::Loaded(_db)) => {
+                                Some(structs::DbState::Loaded(_db)) => {
                                     Some(CollapsingHeader::new(format!(
                                         "{} ({}:{})",
                                         server.alias, server.ip, server.port
@@ -251,14 +371,26 @@ impl App for Main<'_> {
                                             let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
                                             dbs.get(&server_id).cloned()
                                         };
-                                        if let Some(DbState::Loaded(_db)) = db_state {
-                                            if ui.button("SQL query").clicked() {
-                                                info!("SQL query button clicked");
+                                        if let Some(structs::DbState::Loaded(_db)) = db_state {
+                                            if ui.button("SQL Query").clicked() {
+                                                self.pages.pages.push(
+                                                    structs::Page {
+                                                        title: String::from("SQL Query"),
+                                                        page_type: structs::PageType::SQLQuery(
+                                                            structs::SQLQueryPage {
+                                                                database: _db,
+                                                                code: String::new(),
+                                                                output: None,
+                                                            }
+                                                        ),
+                                                    }
+                                                );
+                                                self.pages.current_page_index = (self.pages.pages.len() - 1) as u16;
                                             }
                                         }
                                     }).header_response)
                                 }
-                                Some(DbState::Error(e)) => {
+                                Some(structs::DbState::Error(e)) => {
                                     let warning = ui.add(self.icons.warning.clone());
                                     if warning.hovered() {
                                         egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), id, |ui| {
@@ -277,7 +409,7 @@ impl App for Main<'_> {
                                     let server_clone = server.clone();
                                     {
                                         let mut dbs = dbs.lock().expect("Failed to lock dbs mutex");
-                                        dbs.insert(server_id.clone(), DbState::Loading);
+                                        dbs.insert(server_id.clone(), structs::DbState::Loading);
                                     }
                                     self.runtime.spawn(async move {
                                         Self::load_db(server_id_clone, server_clone, dbs).await;
@@ -315,5 +447,6 @@ impl App for Main<'_> {
         });
 
         self.update_windows(ctx, _frame);
+        self.update_pages(ctx, _frame);
     }
 }

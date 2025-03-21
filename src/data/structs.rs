@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use std::collections::HashMap;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub servers: Vec<Server>,
@@ -63,4 +65,57 @@ impl DeleteServerWindow {
 
 pub struct Icons<'a> {
     pub warning: egui::Image<'a>,
+    pub rs_postgres: egui::Image<'a>,
+}
+
+#[derive(Clone)]
+pub enum DbState {
+    Loading,
+    Loaded(crate::database::Database),
+    Error(String),
+}
+
+#[derive(Clone)]
+pub struct SQLQueryPage {
+    pub database: crate::database::Database,
+    pub code: String,
+    pub output: Option<HashMap<String, Vec<String>>>,
+}
+
+#[derive(Clone)]
+pub enum PageType {
+    Welcome,
+    SQLQuery(SQLQueryPage)
+}
+
+#[derive(Clone)]
+pub struct Page {
+    pub title: String,
+    pub page_type: PageType,
+}
+
+impl Page {
+    pub fn default() -> Self {
+        Self { title: String::from("Welcome"), page_type: PageType::Welcome }
+    }
+}
+
+#[derive(Clone)]
+pub struct Pages {
+    pub current_page_index: u16,
+    pub pages: Vec<Page>,
+}
+
+impl Pages {
+    pub fn default() -> Self {
+        Self {
+            current_page_index: 0,
+            pages: vec![Page::default()],
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Action {
+    ClosePage(usize),
 }

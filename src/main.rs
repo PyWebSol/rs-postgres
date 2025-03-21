@@ -18,7 +18,8 @@ fn main() {
         log::set_max_level(log::LevelFilter::Info);
     }
 
-    let options = NativeOptions::default();
+    let mut options = NativeOptions::default();
+    options.viewport = egui::ViewportBuilder::default().with_min_inner_size([720.0, 480.0]);
 
     eframe::run_native(
         "Rs-Postgres",
