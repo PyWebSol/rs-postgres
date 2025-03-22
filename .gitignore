@@ -21,3 +21,6 @@ target/
 Cargo.lock
 
 tests/
+
+# Heaptrack
+heaptrack*.zst
