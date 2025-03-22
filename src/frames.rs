@@ -45,8 +45,8 @@ impl Main<'_> {
             delete_server_window: structs::DeleteServerWindow::default(),
             sql_response_copy_window: structs::SQLResponseCopyWindow::default(),
             icons: structs::Icons {
-                warning: egui::Image::new(icons::WARNING).max_size(egui::vec2(32.0, 32.0)),
-                rs_postgres: egui::Image::new(icons::RS_POSTGRES),
+                warning: egui::Image::new(icons::WARNING).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
+                rs_postgres: egui::Image::new(icons::RS_POSTGRES).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
             },
             runtime,
             pages: structs::Pages::default(),
@@ -423,10 +423,10 @@ impl Main<'_> {
                                                 .body(|mut body| {
                                                     for i in 0..data[data.keys().next().unwrap()].len() {
                                                         body.row(16.0, |mut row| {
-                                                            for (key, value) in data.iter() {
+                                                            for value in data.values() {
                                                                 row.col(|ui| {
                                                                     let content = value[i].to_string();
-                                                                    let mut label = content.clone().replace("\n", " ");
+                                                                    let label = content.clone().replace("\n", " ");
                                                                     
                                                                     let label = Label::new(label)
                                                                         .wrap_mode(egui::TextWrapMode::Truncate);
@@ -524,7 +524,6 @@ impl App for Main<'_> {
                                                                                 name: database.name,
                                                                                 database: database.database,
                                                                                 code: String::new(),
-                                                                                output: None,
                                                                                 sql_query_execution_status: None,
                                                                             }
                                                                         ),

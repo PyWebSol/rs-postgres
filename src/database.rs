@@ -1,11 +1,9 @@
-use sqlx::{PgPool, Row, Column, TypeInfo};
+use sqlx::{Column, PgPool, Row, TypeInfo};
 use sqlx_postgres::PgPoolOptions;
 
 use sqlx::postgres::types::{PgInterval, PgMoney};
 
-use std::collections::HashMap;
-
-use chrono::{DateTime, Utc, NaiveDate, NaiveTime};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 
 use crate::data::structs::ValueType;
 
@@ -18,14 +16,10 @@ pub struct Database {
 
 impl Database {
     pub async fn new(url: impl ToString) -> Result<Self, String> {
-        let pool = PgPoolOptions::new()
-            .connect(&url.to_string())
-            .await;
+        let pool = PgPoolOptions::new().connect(&url.to_string()).await;
 
         if let Ok(pool) = pool {
-            return Ok(Self {
-                pool,
-            });
+            return Ok(Self { pool });
         } else if let Err(e) = pool {
             return Err(e.to_string());
         }
@@ -38,26 +32,27 @@ impl Database {
             .fetch_all(&self.pool)
             .await
             .map_err(|e| e.to_string())?;
-    
+
         let databases = rows
             .into_iter()
             .map(|row| row.try_get("datname").map_err(|e| e.to_string()))
             .collect::<Result<Vec<String>, String>>()?;
-    
+
         Ok(databases)
     }
 
-    pub async fn execute_query(&self, query: &str) -> Result<IndexMap<String, Vec<ValueType>>, String> {
+    pub async fn execute_query(
+        &self,
+        query: &str,
+    ) -> Result<IndexMap<String, Vec<ValueType>>, String> {
         let rows = sqlx::query(query)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| e.to_string())?;
-    
-        let mut results = IndexMap::new();
-    
+
+        let mut results = indexmap::IndexMap::new();
+
         for row in rows {
-            let mut row_data: IndexMap<String, ValueType> = IndexMap::new();
-            
             for column in row.columns() {
                 let column_name = column.name().to_string();
                 let type_info = column.type_info();
@@ -89,7 +84,7 @@ impl Database {
                         .try_get::<PgMoney, _>(column_name.as_str())
                         .map(|v| ValueType::BigInt(v.0))
                         .unwrap_or(ValueType::Null),
-    
+
                     // Text types
                     "CHAR" | "VARCHAR" | "TEXT" | "NAME" => row
                         .try_get::<String, _>(column_name.as_str())
@@ -135,7 +130,7 @@ impl Database {
                         .try_get::<serde_json::Value, _>(column_name.as_str())
                         .map(|v| ValueType::Text(v.to_string()))
                         .unwrap_or(ValueType::Null),
-    
+
                     // Array types (basic handling)
                     typ if typ.starts_with("_") => row
                         .try_get::<Vec<String>, _>(column_name.as_str())
@@ -152,7 +147,7 @@ impl Database {
                 results.get_mut(&column_name).unwrap().push(value);
             }
         }
-    
+
         Ok(results)
     }
 }

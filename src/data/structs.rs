@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use indexmap::IndexMap;
+
+use std::sync::{Arc, Mutex};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -22,7 +22,7 @@ pub struct Server {
 impl Config {
     pub fn default() -> Self {
         Self {
-            servers: Vec::new()
+            servers: Vec::new(),
         }
     }
 }
@@ -114,7 +114,6 @@ pub enum ValueType {
     Bool(bool),
     Bytea(Vec<u8>),
     Array(Vec<ValueType>),
-    Object(HashMap<String, ValueType>),
     Unknown(String),
 }
 
@@ -127,9 +126,16 @@ impl ValueType {
             ValueType::BigInt(big_int) => big_int.to_string(),
             ValueType::Float(float) => float.to_string(),
             ValueType::Bool(bool) => bool.to_string(),
-            ValueType::Bytea(items) => items.iter().map(|item| item.to_string()).collect::<Vec<String>>().join(", "),
-            ValueType::Array(value_types) => value_types.iter().map(|item| item.to_string()).collect::<Vec<String>>().join(", "),
-            ValueType::Object(hash_map) => hash_map.iter().map(|(key, value)| format!("{}: {:?}", key, value)).collect::<Vec<String>>().join(", "),
+            ValueType::Bytea(items) => items
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            ValueType::Array(value_types) => value_types
+                .iter()
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
             ValueType::Unknown(unknown) => unknown.clone(),
         }
     }
@@ -140,7 +146,6 @@ pub struct SQLQueryPage {
     pub name: String,
     pub database: crate::database::Database,
     pub code: String,
-    pub output: Option<HashMap<String, Vec<String>>>,
     pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatus>>>,
 }
 
@@ -158,7 +163,10 @@ pub struct Page {
 
 impl Page {
     pub fn default() -> Self {
-        Self { title: String::from("Welcome"), page_type: PageType::Welcome }
+        Self {
+            title: String::from("Welcome"),
+            page_type: PageType::Welcome,
+        }
     }
 }
 
