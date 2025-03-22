@@ -203,9 +203,6 @@ impl Main<'_> {
                         } else if self.add_server_window.name_field.chars().count() > 32 {
                             ui.label("• Name must be less than 32 characters");
                             true
-                        } else if self.add_server_window.name_field.chars().any(|c| !c.is_alphanumeric()) {
-                            ui.label("• Name must be alphanumeric");
-                            true
                         } else if self.config.servers.iter().any(|server| server.alias == self.add_server_window.name_field) {
                             ui.label("• Name must be unique");
                             true
