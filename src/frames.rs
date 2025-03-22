@@ -13,6 +13,8 @@ use std::fs as std_fs;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use open;
+
 struct DbManager {
     dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
 }
@@ -366,6 +368,41 @@ impl Main<'_> {
                                     ui.add(self.icons.rs_postgres.clone());
                                     ui.heading("Welcome to Rs-Postgres: Rust-based PostgreSQL client.");
                                 });
+
+                                ui.add_space(16.0);
+                                ui.label(RichText::new("Features").strong());
+                                ui.separator();
+                                ui.vertical(|ui| {
+                                    ui.label("• Lightweight and fast");
+                                    ui.label("• Connect to multiple PostgreSQL servers");
+                                    ui.label("• Manage databases through GUI");
+                                    ui.label("• Execute SQL queries with results preview");
+                                });
+
+                                ui.add_space(16.0);
+                                ui.label(RichText::new("Getting Started").strong());
+                                ui.separator();
+                                ui.vertical(|ui| {
+                                    ui.label("1. Click 'Add server' in left panel");
+                                    ui.label("2. Enter server connection parameters");
+                                    ui.label("3. Select database in connection tree");
+                                    ui.label("4. Start working with SQL queries");
+                                });
+
+                                ui.add_space(16.0);
+                                ui.label(RichText::new("Resources").strong());
+                                ui.separator();
+                                ui.horizontal(|ui| {
+                                    if ui.add(Button::new("🐙 GitHub").fill(Color32::TRANSPARENT))
+                                        .on_hover_text("Open repository")
+                                        .clicked() {
+
+                                        open::that("https://github.com/pywebsol/rs-postgres").unwrap();
+                                    }
+                                });
+
+                                ui.add_space(24.0);
+                                ui.label(RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION"))).small().color(Color32::GRAY));
                             });
                         },
                         structs::PageType::SQLQuery(sqlquery_page) => {

@@ -28,5 +28,7 @@ chrono = "0.4.40"
 
 indexmap = "2.8.0"
 
+open = "5.3.2"
+
 [package.metadata.winresource]
 icon = ["assets/icon.ico"]
