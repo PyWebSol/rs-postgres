@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use indexmap::IndexMap;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -63,22 +65,42 @@ impl DeleteServerWindow {
     }
 }
 
+pub struct SQLResponseCopyWindow {
+    pub show: bool,
+    pub response: Option<String>,
+}
+
+impl SQLResponseCopyWindow {
+    pub fn default() -> Self {
+        Self {
+            show: false,
+            response: None,
+        }
+    }
+}
+
 pub struct Icons<'a> {
     pub warning: egui::Image<'a>,
     pub rs_postgres: egui::Image<'a>,
 }
 
 #[derive(Clone)]
+pub struct LoadedDatabase {
+    pub name: String,
+    pub database: crate::database::Database,
+}
+
+#[derive(Clone)]
 pub enum DbState {
     Loading,
-    Loaded(crate::database::Database),
+    Loaded(Vec<LoadedDatabase>),
     Error(String),
 }
 
 #[derive(Clone, Debug)]
 pub enum SQLQueryExecutionStatus {
     Running,
-    Success(Vec<HashMap<String, ValueType>>),
+    Success(IndexMap<String, Vec<ValueType>>),
     Error(String),
 }
 
@@ -96,18 +118,36 @@ pub enum ValueType {
     Unknown(String),
 }
 
+impl ValueType {
+    pub fn to_string(&self) -> String {
+        match self {
+            ValueType::Null => "None".to_string(),
+            ValueType::Text(text) => text.clone(),
+            ValueType::Int(int) => int.to_string(),
+            ValueType::BigInt(big_int) => big_int.to_string(),
+            ValueType::Float(float) => float.to_string(),
+            ValueType::Bool(bool) => bool.to_string(),
+            ValueType::Bytea(items) => items.iter().map(|item| item.to_string()).collect::<Vec<String>>().join(", "),
+            ValueType::Array(value_types) => value_types.iter().map(|item| item.to_string()).collect::<Vec<String>>().join(", "),
+            ValueType::Object(hash_map) => hash_map.iter().map(|(key, value)| format!("{}: {:?}", key, value)).collect::<Vec<String>>().join(", "),
+            ValueType::Unknown(unknown) => unknown.clone(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SQLQueryPage {
+    pub name: String,
     pub database: crate::database::Database,
     pub code: String,
     pub output: Option<HashMap<String, Vec<String>>>,
-    pub sql_query_execution_status: Option<SQLQueryExecutionStatus>,
+    pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatus>>>,
 }
 
 #[derive(Clone)]
 pub enum PageType {
     Welcome,
-    SQLQuery(SQLQueryPage)
+    SQLQuery(SQLQueryPage),
 }
 
 #[derive(Clone)]

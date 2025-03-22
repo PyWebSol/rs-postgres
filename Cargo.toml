@@ -26,5 +26,7 @@ simple_logger = "5.0.0"
 
 chrono = "0.4.40"
 
+indexmap = "2.8.0"
+
 [package.metadata.winresource]
 icon = ["assets/icon.ico"]

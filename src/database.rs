@@ -9,6 +9,8 @@ use chrono::{DateTime, Utc, NaiveDate, NaiveTime};
 
 use crate::data::structs::ValueType;
 
+use indexmap::IndexMap;
+
 #[derive(Clone)]
 pub struct Database {
     pool: PgPool,
@@ -45,31 +47,16 @@ impl Database {
         Ok(databases)
     }
 
-    pub async fn get_table_columns(&self, table_name: &str) -> Result<Vec<String>, String> {
-        let rows = sqlx::query("SELECT column_name FROM information_schema.columns WHERE table_name = $1")
-            .bind(table_name)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| e.to_string())?;
-
-        let columns = rows
-            .into_iter()
-            .map(|row| row.try_get("column_name").map_err(|e| e.to_string()))
-            .collect::<Result<Vec<String>, String>>()?;
-
-        Ok(columns)
-    }
-
-    pub async fn execute_query(&self, query: &str) -> Result<Vec<HashMap<String, ValueType>>, String> {
+    pub async fn execute_query(&self, query: &str) -> Result<IndexMap<String, Vec<ValueType>>, String> {
         let rows = sqlx::query(query)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| e.to_string())?;
     
-        let mut results = Vec::new();
+        let mut results = IndexMap::new();
     
         for row in rows {
-            let mut row_data = HashMap::new();
+            let mut row_data: IndexMap<String, ValueType> = IndexMap::new();
             
             for column in row.columns() {
                 let column_name = column.name().to_string();
@@ -158,10 +145,12 @@ impl Database {
                     // Unknown types
                     _ => ValueType::Unknown(type_name.to_string()),
                 };
-                
-                row_data.insert(column_name, value);
+
+                if results.get(&column_name).is_none() {
+                    results.insert(column_name.clone(), Vec::new());
+                }
+                results.get_mut(&column_name).unwrap().push(value);
             }
-            results.push(row_data);
         }
     
         Ok(results)
