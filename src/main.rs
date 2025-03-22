@@ -20,17 +20,14 @@ fn main() {
     
     builder.filter_module("zbus", LevelFilter::Error);
     builder.filter_module("tracing", LevelFilter::Error);
+    builder.filter_module("winit", LevelFilter::Error);
     
     builder.init();
 
     let mut options = NativeOptions::default();
-    options.viewport = egui::ViewportBuilder::default().with_min_inner_size([720.0, 480.0]).with_icon(
-        egui::IconData {
-            rgba: data::icons::RS_POSTGRES_ICO.to_vec(),
-            width: 64,
-            height: 64,
-        }
-    );
+    options.viewport = egui::ViewportBuilder::default()
+        .with_min_inner_size([720.0, 480.0])
+        .with_icon(utils::load_icon());
 
     eframe::run_native(
         "Rs-Postgres",
