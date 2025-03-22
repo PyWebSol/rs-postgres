@@ -400,6 +400,22 @@ impl Main<'_> {
                                         open::that("https://github.com/pywebsol/rs-postgres").unwrap();
                                     }
                                 });
+                                ui.horizontal(|ui| {
+                                    if ui.add(Button::new("📝 License").fill(Color32::TRANSPARENT))
+                                        .on_hover_text("Open license")
+                                        .clicked() {
+
+                                        open::that("https://github.com/pywebsol/rs-postgres/blob/main/LICENSE").unwrap();
+                                    }
+                                });
+                                ui.horizontal(|ui| {
+                                    if ui.add(Button::new("🤗 Support").fill(Color32::TRANSPARENT))
+                                        .on_hover_text("Open telegram")
+                                        .clicked() {
+
+                                        open::that("https://t.me/bot_token").unwrap();
+                                    }
+                                });
 
                                 ui.add_space(24.0);
                                 ui.label(RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION"))).small().color(Color32::GRAY));
@@ -407,8 +423,16 @@ impl Main<'_> {
                         },
                         structs::PageType::SQLQuery(sqlquery_page) => {
                             ui.vertical(|ui| {
-                                ui.label(format!("Database {}", sqlquery_page.name));
+                                ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
 
+                                ui.add(
+                                    TextEdit::multiline(&mut sqlquery_page.code)
+                                    .code_editor()
+                                    .desired_width(f32::INFINITY)
+                                    .desired_rows(10)
+                                    .background_color(Color32::from_hex("#242424").unwrap())
+                                    .hint_text("SELECT * FROM ..."),
+                                );
                                 if ui.button("Run").clicked() {
                                     let runtime = &self.runtime;
     
@@ -422,14 +446,6 @@ impl Main<'_> {
                                         Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
                                     });
                                 }
-                                ui.add(
-                                    TextEdit::multiline(&mut sqlquery_page.code)
-                                        .code_editor()
-                                        .desired_width(f32::INFINITY)
-                                        .desired_rows(10)
-                                        .background_color(Color32::from_hex("#242424").unwrap())
-                                        .hint_text("SELECT * FROM ..."),
-                                );
                                 if let Some(sql_query_execution_status) = &sqlquery_page.sql_query_execution_status {
                                     let sql_query_execution_status = sql_query_execution_status.lock().unwrap().clone();
                                     match &sql_query_execution_status {
