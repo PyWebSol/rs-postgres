@@ -2,8 +2,9 @@ use crate::data::*;
 use crate::database;
 
 use eframe::{egui, App};
+use egui::Ui;
 use egui::{
-    Window, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
+    CentralPanel, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea, Label,
     RichText, Key,
 };
@@ -155,12 +156,21 @@ impl Main<'_> {
         }
     }
 
+    fn modal_label(&mut self, ui: &mut Ui, title: impl ToString) {
+        ui.vertical_centered(|ui| {
+            ui.heading(title.to_string());
+
+            ui.separator();
+            ui.add_space(8.0);
+        });
+    }
+
     fn update_windows(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.add_server_window.show {
-            Window::new("New server")
-                .scroll([false, false])
-                .resizable(false)
+            Modal::new(Id::new("add_server_modal"))
                 .show(ctx, |ui| {
+                    self.modal_label(ui, "Add server");
+                    
                     Grid::new("server_form")
                         .num_columns(2)
                         .spacing([40.0, 4.0])
@@ -239,6 +249,7 @@ impl Main<'_> {
 
                     ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                         ui.separator();
+
                         ui.horizontal(|ui| {
                             if ui.add_enabled(enable_save_button, Button::new("Save")).clicked() {
                                 let server = structs::Server {
@@ -277,17 +288,23 @@ impl Main<'_> {
 
                 if let Some(idx_to_delete) = idx_to_delete {
                     Modal::new(Id::new("delete_server_modal")).show(ctx, |ui| {
+                        self.modal_label(ui, "Delete server");
+
                         ui.label("Are you sure you want to delete this server?");
-                        ui.separator();
-                        ui.horizontal(|ui| {
-                            if ui.button("Yes").clicked() {
-                                self.config.servers.remove(idx_to_delete);
-                                self.save_config();
-                                self.delete_server_window = structs::DeleteServerWindow::default();
-                            }
-                            if ui.button("No").clicked() {
-                                self.delete_server_window = structs::DeleteServerWindow::default();
-                            }
+
+                        ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                            ui.separator();
+
+                            ui.horizontal(|ui| {
+                                if ui.button("Yes").clicked() {
+                                    self.config.servers.remove(idx_to_delete);
+                                    self.save_config();
+                                    self.delete_server_window = structs::DeleteServerWindow::default();
+                                }
+                                if ui.button("No").clicked() {
+                                    self.delete_server_window = structs::DeleteServerWindow::default();
+                                }
+                            });
                         });
                     });
                 }
@@ -296,18 +313,24 @@ impl Main<'_> {
 
         if self.sql_response_copy_window.show {
             Modal::new(Id::new("sql_response_copy_modal")).show(ctx, |ui| {
+                self.modal_label(ui, "Text viewer");
+
                 ui.set_width(320.0);
 
                 ui.label(self.sql_response_copy_window.response.clone().unwrap());
-                ui.separator();
-                ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() {
-                    ui.ctx().copy_text(self.sql_response_copy_window.response.clone().unwrap());
-                    self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
-                }
-                if ui.button("Close").clicked() {
+                
+                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                    ui.separator();
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Copy").clicked() {
+                        ui.ctx().copy_text(self.sql_response_copy_window.response.clone().unwrap());
                         self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
                     }
+                    if ui.button("Close").clicked() {
+                            self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
+                        }
+                    });
                 });
             });
         }
@@ -427,7 +450,27 @@ impl Main<'_> {
                         },
                         structs::PageType::SQLQuery(sqlquery_page) => {
                             ui.vertical(|ui| {
-                                ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
+                                ui.horizontal(|ui| {
+                                    ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
+
+                                    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                                        let code_is_empty = sqlquery_page.code.is_empty();
+
+                                        if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
+                                            let runtime = &self.runtime;
+            
+                                            sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
+
+                                            let database_clone = sqlquery_page.database.clone();
+                                            let code_clone = sqlquery_page.code.clone();
+                                            let sql_query_execution_status = sqlquery_page.sql_query_execution_status.clone();
+            
+                                            runtime.spawn(async move {
+                                                Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
+                                            });
+                                        }
+                                    });
+                                });
 
                                 let mut theme = egui_extras::syntax_highlighting::CodeTheme::light(12.0);
 
@@ -465,21 +508,8 @@ impl Main<'_> {
                                     });
                                 }
 
-                                let code_is_empty = sqlquery_page.code.is_empty();
+                                ui.add_space(8.0);
 
-                                if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
-                                    let runtime = &self.runtime;
-    
-                                    sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
-
-                                    let database_clone = sqlquery_page.database.clone();
-                                    let code_clone = sqlquery_page.code.clone();
-                                    let sql_query_execution_status = sqlquery_page.sql_query_execution_status.clone();
-    
-                                    runtime.spawn(async move {
-                                        Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
-                                    });
-                                }
                                 if let Some(sql_query_execution_status) = &sqlquery_page.sql_query_execution_status {
                                     let sql_query_execution_status = sql_query_execution_status.lock().unwrap().clone();
                                     match &sql_query_execution_status {
@@ -488,6 +518,8 @@ impl Main<'_> {
                                                 ui.add(Spinner::new());
                                                 ui.label("Running...");
                                             });
+
+                                            ui.separator();
                                         }
                                         structs::SQLQueryExecutionStatusType::Success(result) => {
                                             let data = &result.result;
@@ -499,8 +531,15 @@ impl Main<'_> {
 
                                             let available_height = ui.available_height();
 
-                                            ui.label(format!("Total rows: {}", rows_count));
-                                            ui.label(format!("Execution time: {} ms", execution_time));
+                                            ui.horizontal(|ui| {
+                                                ui.label("Success");
+                                                ui.separator();
+                                                ui.label(format!("Rows: {}", rows_count));
+                                                ui.separator();
+                                                ui.label(format!("Time: {} ms", execution_time));
+                                            });
+
+                                            ui.separator();
 
                                             if !data.is_empty() {
                                                 TableBuilder::new(ui)
@@ -545,11 +584,21 @@ impl Main<'_> {
                                                     });
                                                 } else {
                                                     ui.horizontal(|ui| {
-                                                        ui.heading("No data returned");
+                                                        ui.add(self.icons.warning.clone());
+                                                        ui.label("Error");
                                                     });
+
+                                                    ui.heading("No data returned");
                                                 }
                                         }
                                         structs::SQLQueryExecutionStatusType::Error(e) => {
+                                            ui.separator();
+
+                                            ui.horizontal(|ui| {
+                                                ui.add(self.icons.warning.clone());
+                                                ui.label("Error");
+                                            });
+                                            
                                             ui.heading(e);
                                         }
                                     }
