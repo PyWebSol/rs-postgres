@@ -98,9 +98,15 @@ pub enum DbState {
 }
 
 #[derive(Clone, Debug)]
-pub enum SQLQueryExecutionStatus {
+pub struct SQLQueryExecutionSuccess {
+    pub result: IndexMap<String, Vec<ValueType>>,
+    pub execution_time: u64,
+}
+
+#[derive(Clone, Debug)]
+pub enum SQLQueryExecutionStatusType {
     Running,
-    Success(IndexMap<String, Vec<ValueType>>),
+    Success(SQLQueryExecutionSuccess),
     Error(String),
 }
 
@@ -146,7 +152,7 @@ pub struct SQLQueryPage {
     pub name: String,
     pub database: crate::database::Database,
     pub code: String,
-    pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatus>>>,
+    pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatusType>>>,
 }
 
 #[derive(Clone)]

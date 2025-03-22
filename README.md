@@ -40,7 +40,7 @@ cargo run --release
 2. **Execute Queries**
    - Select database in connection tree
    - Write SQL in editor panel
-   - Click "Run" (Ctrl+Enter) to execute
+   - Click "Run" (F5) to execute
 
 3. **Result Handling**
    - View results in table
@@ -64,11 +64,11 @@ cargo run -- --debug
 - [ ] SQL scripts opening and saving
 - [ ] Creating new databases and tables in the connection tree
 - [ ] Connection health monitoring
-- [ ] Query execution time tracking
+- [x] Query execution time tracking
 - [ ] Query results pagination
 - [ ] Query results export to CSV and JSON
 - [ ] Editing server connection details
-- [ ] Syntax highlighting
+- [x] Syntax highlighting
 - [ ] Translations
 
 # Support 🤗

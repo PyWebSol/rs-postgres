@@ -5,13 +5,14 @@ use eframe::{egui, App};
 use egui::{
     Window, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea, Label,
-    RichText,
+    RichText, Key,
 };
 use egui_extras::{TableBuilder, Column};
 use log::{info, error};
 use std::fs as std_fs;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use open;
 
@@ -135,11 +136,17 @@ impl Main<'_> {
         }
     }
 
-    async fn fetch_sql_query(database: database::Database, code: &str, sql_query_execution_status: Option<Arc<Mutex<structs::SQLQueryExecutionStatus>>>) {
+    async fn fetch_sql_query(database: database::Database, code: &str, sql_query_execution_status: Option<Arc<Mutex<structs::SQLQueryExecutionStatusType>>>) {
+        let start_time = Instant::now();
         let result = database.execute_query(&code).await;
+        let execution_time = start_time.elapsed().as_millis();
+
         let execution_status = match result {
-            Ok(result) => structs::SQLQueryExecutionStatus::Success(result),
-            Err(e) => structs::SQLQueryExecutionStatus::Error(e.to_string()),
+            Ok(result) => structs::SQLQueryExecutionStatusType::Success(structs::SQLQueryExecutionSuccess {
+                result,
+                execution_time: execution_time as u64,
+            }),
+            Err(e) => structs::SQLQueryExecutionStatusType::Error(e.to_string()),
         };
 
         if let Some(sql_query_execution_status) = sql_query_execution_status {
@@ -409,7 +416,7 @@ impl Main<'_> {
                                     }
                                 });
                                 ui.horizontal(|ui| {
-                                    if ui.add(Button::new("🤗 Support").fill(Color32::TRANSPARENT))
+                                    if ui.add(Button::new("📨 Support").fill(Color32::TRANSPARENT))
                                         .on_hover_text("Open telegram")
                                         .clicked() {
 
@@ -425,18 +432,48 @@ impl Main<'_> {
                             ui.vertical(|ui| {
                                 ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
 
-                                ui.add(
+                                let mut theme = egui_extras::syntax_highlighting::CodeTheme::light(12.0);
+
+                                let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+                                    let mut layout_job = egui_extras::syntax_highlighting::highlight(
+                                        ui.ctx(),
+                                        ui.style(),
+                                        &mut theme,
+                                        string,
+                                        "sql",
+                                    );
+                                    layout_job.wrap.max_width = wrap_width;
+                                    ui.fonts(|f| f.layout_job(layout_job))
+                                };
+
+                                let code_editor = ui.add(
                                     TextEdit::multiline(&mut sqlquery_page.code)
-                                    .code_editor()
-                                    .desired_width(f32::INFINITY)
-                                    .desired_rows(10)
-                                    .background_color(Color32::from_hex("#242424").unwrap())
-                                    .hint_text("SELECT * FROM ..."),
+                                        .font(egui::TextStyle::Monospace)
+                                        .code_editor()
+                                        .desired_width(f32::INFINITY)
+                                        .desired_rows(10)
+                                        .background_color(Color32::from_hex("#242424").unwrap())
+                                        .hint_text("SELECT * FROM ...")
+                                        .layouter(&mut layouter),
                                 );
-                                if ui.button("Run").clicked() {
+                                if code_editor.secondary_clicked() {
+                                    ui.memory_mut(|mem| mem.open_popup(Id::new("code_editor_popup")));
+                                }
+
+                                if ui.memory(|mem| mem.is_popup_open(Id::new("code_editor_popup"))) {
+                                    code_editor.context_menu(|ui| {
+                                        if ui.button("Clear").clicked() {
+                                            sqlquery_page.code = String::new();
+                                        }
+                                    });
+                                }
+
+                                let code_is_empty = sqlquery_page.code.is_empty();
+
+                                if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
                                     let runtime = &self.runtime;
     
-                                    sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatus::Running)));
+                                    sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
 
                                     let database_clone = sqlquery_page.database.clone();
                                     let code_clone = sqlquery_page.code.clone();
@@ -449,53 +486,74 @@ impl Main<'_> {
                                 if let Some(sql_query_execution_status) = &sqlquery_page.sql_query_execution_status {
                                     let sql_query_execution_status = sql_query_execution_status.lock().unwrap().clone();
                                     match &sql_query_execution_status {
-                                        structs::SQLQueryExecutionStatus::Running => {
+                                        structs::SQLQueryExecutionStatusType::Running => {
                                             ui.horizontal(|ui| {
                                                 ui.add(Spinner::new());
                                                 ui.label("Running...");
                                             });
                                         }
-                                        structs::SQLQueryExecutionStatus::Success(data) => {
+                                        structs::SQLQueryExecutionStatusType::Success(result) => {
+                                            let data = &result.result;
+                                            let rows_count = match data.is_empty() {
+                                                true => 0,
+                                                false => data.values().next().unwrap().len(),
+                                            };
+                                            let execution_time = result.execution_time;
+
                                             let available_height = ui.available_height();
 
-                                            TableBuilder::new(ui)
-                                                .striped(true)
-                                                .auto_shrink([false, false])
-                                                .max_scroll_height(available_height)
-                                                .columns(Column::remainder().resizable(true), data.keys().len())
-                                                .header(16.0, |mut header| {
-                                                    for column_name in data.keys() {
-                                                        header.col(|ui| {
-                                                            ui.add(
-                                                                Label::new(RichText::new(column_name).strong().monospace())
-                                                                    .wrap_mode(egui::TextWrapMode::Extend)
-                                                            );
-                                                        });
-                                                    }
-                                                })
-                                                .body(|mut body| {
-                                                    for i in 0..data[data.keys().next().unwrap()].len() {
-                                                        body.row(16.0, |mut row| {
-                                                            for value in data.values() {
-                                                                row.col(|ui| {
-                                                                    let content = value[i].to_string();
-                                                                    let label = content.clone().replace("\n", " ");
-                                                                    
-                                                                    let label = Label::new(label)
-                                                                        .wrap_mode(egui::TextWrapMode::Truncate);
+                                            ui.label(format!("Total rows: {}", rows_count));
+                                            ui.label(format!("Execution time: {} ms", execution_time));
 
-                                                                    if ui.add(label).clicked() {
-                                                                        self.sql_response_copy_window.show = true;
-                                                                        self.sql_response_copy_window.response = Some(content);
-                                                                    }
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                });
+                                            if !data.is_empty() {
+                                                TableBuilder::new(ui)
+                                                    .striped(true)
+                                                    .auto_shrink([false, false])
+                                                    .max_scroll_height(available_height)
+                                                    .columns(Column::remainder().resizable(true), data.keys().len())
+                                                    .header(16.0, |mut header| {
+                                                        for column_name in data.keys() {
+                                                            header.col(|ui| {
+                                                                ui.add(
+                                                                    Label::new(RichText::new(column_name).strong().monospace())
+                                                                        .wrap_mode(egui::TextWrapMode::Extend)
+                                                                );
+                                                            });
+                                                        }
+                                                    })
+                                                    .body(|mut body| {
+                                                        for i in 0..data[data.keys().next().unwrap()].len() {
+                                                            body.row(16.0, |mut row| {
+                                                                for value in data.values() {
+                                                                    row.col(|ui| {
+                                                                        let content = value[i].to_string();
+                                                                        let label = content.clone().replace("\n", " ");
+                                                                        
+                                                                        let label = Label::new(label)
+                                                                            .wrap_mode(egui::TextWrapMode::Truncate);
+                                                                        let label_widget = ui.add(label);
+
+                                                                        if label_widget.clicked() {
+                                                                            self.sql_response_copy_window.show = true;
+                                                                            self.sql_response_copy_window.response = Some(content);
+                                                                        } else if label_widget.hovered() {
+                                                                            egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("copy_tooltip"), |ui| {
+                                                                                ui.label("Click to copy");
+                                                                            });
+                                                                        }
+                                                                    });
+                                                                }
+                                                            });
+                                                        }
+                                                    });
+                                                } else {
+                                                    ui.horizontal(|ui| {
+                                                        ui.heading("No data returned");
+                                                    });
+                                                }
                                         }
-                                        structs::SQLQueryExecutionStatus::Error(e) => {
-                                            ui.label(e);
+                                        structs::SQLQueryExecutionStatusType::Error(e) => {
+                                            ui.heading(e);
                                         }
                                     }
                                 }

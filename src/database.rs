@@ -137,6 +137,9 @@ impl Database {
                         .map(|v| ValueType::Array(v.into_iter().map(ValueType::Text).collect()))
                         .unwrap_or(ValueType::Null),
 
+                    // Unknown/special types that need special handling
+                    "ACLITEM" => ValueType::Text("[ACL permissions]".to_string()),
+
                     // Unknown types
                     _ => ValueType::Unknown(type_name.to_string()),
                 };
