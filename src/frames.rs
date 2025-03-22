@@ -4,9 +4,9 @@ use crate::database;
 use eframe::{egui, App};
 use egui::Ui;
 use egui::{
-    CentralPanel, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
+    RichText, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea, Label,
-    RichText, Key,
+    Key,
 };
 use egui_extras::{TableBuilder, Column};
 use log::{info, error};
