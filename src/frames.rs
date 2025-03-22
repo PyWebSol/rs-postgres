@@ -4,7 +4,8 @@ use crate::database;
 use eframe::{egui, App};
 use egui::{
     Window, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
-    Button, CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea,
+    Button, CollapsingHeader, Id, TopBottomPanel, Grid, ScrollArea, Label,
+    RichText,
 };
 use egui_extras::{TableBuilder, Column};
 use log::{info, error};
@@ -412,21 +413,25 @@ impl Main<'_> {
                                                 .header(16.0, |mut header| {
                                                     for column_name in data.keys() {
                                                         header.col(|ui| {
-                                                            ui.strong(column_name);
+                                                            ui.add(
+                                                                Label::new(RichText::new(column_name).strong().monospace())
+                                                                    .wrap_mode(egui::TextWrapMode::Extend)
+                                                            );
                                                         });
                                                     }
                                                 })
                                                 .body(|mut body| {
                                                     for i in 0..data[data.keys().next().unwrap()].len() {
                                                         body.row(16.0, |mut row| {
-                                                            for value in data.values() {
+                                                            for (key, value) in data.iter() {
                                                                 row.col(|ui| {
                                                                     let content = value[i].to_string();
                                                                     let mut label = content.clone().replace("\n", " ");
-                                                                    if label.chars().count() > 16 {
-                                                                        label = format!("{}...", &label.chars().take(16).collect::<String>());
-                                                                    }
-                                                                    if ui.label(label).clicked() {
+                                                                    
+                                                                    let label = Label::new(label)
+                                                                        .wrap_mode(egui::TextWrapMode::Truncate);
+
+                                                                    if ui.add(label).clicked() {
                                                                         self.sql_response_copy_window.show = true;
                                                                         self.sql_response_copy_window.response = Some(content);
                                                                     }
@@ -468,124 +473,126 @@ impl Main<'_> {
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         SidePanel::left("left_panel").show(ctx, |ui| {
-            CollapsingHeader::new("Servers")
-                .default_open(true)
-                .show(ui, |ui| {
-                    let server_indices: Vec<usize> = (0..self.config.servers.len()).collect();
+            ScrollArea::vertical().show(ui, |ui| {
+                CollapsingHeader::new("Servers")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        let server_indices: Vec<usize> = (0..self.config.servers.len()).collect();
 
-                    for &idx in &server_indices {
-                        let server = self.config.servers[idx].clone();
-                        ui.horizontal(|ui| {
-                            let server_id = format!("server:{}:{}:{}", server.ip, server.port, server.user);
+                        for &idx in &server_indices {
+                            let server = self.config.servers[idx].clone();
+                            ui.horizontal(|ui| {
+                                let server_id = format!("server:{}:{}:{}", server.ip, server.port, server.user);
 
-                            let db_state = {
-                                let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
-                                dbs.get(&server_id).cloned()
-                            };
+                                let db_state = {
+                                    let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
+                                    dbs.get(&server_id).cloned()
+                                };
 
-                            let id_string = format!("server:{}:{}:{}:warning", server.ip, server.port, server.user);
-                            let id = Id::new(&id_string);
+                                let id_string = format!("server:{}:{}:{}:warning", server.ip, server.port, server.user);
+                                let id = Id::new(&id_string);
 
-                            let server_button: Option<egui::Response> = match db_state {
-                                Some(structs::DbState::Loading) => {
-                                    ui.add(Spinner::new());
+                                let server_button: Option<egui::Response> = match db_state {
+                                    Some(structs::DbState::Loading) => {
+                                        ui.add(Spinner::new());
 
-                                    Some(ui.label(format!(
-                                        "{} ({}:{})",
-                                        server.alias, server.ip, server.port
-                                    )))
-                                }
-                                Some(structs::DbState::Loaded(_db)) => {
-                                    Some(CollapsingHeader::new(format!(
-                                        "{} ({}:{})",
-                                        server.alias, server.ip, server.port
-                                    ))
-                                    .show(ui, |ui| {
-                                        CollapsingHeader::new("Databases").show(ui, |ui| {
-                                            let db_state = {
-                                                let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
-                                                dbs.get(&server_id).cloned()
-                                            };
-                                            if let Some(structs::DbState::Loaded(_db)) = db_state {
-                                                for database in _db {
-                                                    CollapsingHeader::new(&database.name).show(ui, |ui| {
-                                                        if ui.button("SQL Query").clicked() {
-                                                            self.pages.pages.push(
-                                                                structs::Page {
-                                                                    title: String::from(format!("{} ({}:{})", database.name, server.ip, server.port)),
-                                                                    page_type: structs::PageType::SQLQuery(
-                                                                        structs::SQLQueryPage {
-                                                                            name: database.name,
-                                                                            database: database.database,
-                                                                            code: String::new(),
-                                                                            output: None,
-                                                                            sql_query_execution_status: None,
-                                                                        }
-                                                                    ),
-                                                                }
-                                                            );
-                                                            self.pages.current_page_index = (self.pages.pages.len() - 1) as u16;
-                                                        }
-                                                    });
+                                        Some(ui.label(format!(
+                                            "{} ({}:{})",
+                                            server.alias, server.ip, server.port
+                                        )))
+                                    }
+                                    Some(structs::DbState::Loaded(_db)) => {
+                                        Some(CollapsingHeader::new(format!(
+                                            "{} ({}:{})",
+                                            server.alias, server.ip, server.port
+                                        ))
+                                        .show(ui, |ui| {
+                                            CollapsingHeader::new("Databases").show(ui, |ui| {
+                                                let db_state = {
+                                                    let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
+                                                    dbs.get(&server_id).cloned()
+                                                };
+                                                if let Some(structs::DbState::Loaded(_db)) = db_state {
+                                                    for database in _db {
+                                                        CollapsingHeader::new(&database.name).show(ui, |ui| {
+                                                            if ui.button("SQL Query").clicked() {
+                                                                self.pages.pages.push(
+                                                                    structs::Page {
+                                                                        title: String::from(format!("{} ({}:{})", database.name, server.ip, server.port)),
+                                                                        page_type: structs::PageType::SQLQuery(
+                                                                            structs::SQLQueryPage {
+                                                                                name: database.name,
+                                                                                database: database.database,
+                                                                                code: String::new(),
+                                                                                output: None,
+                                                                                sql_query_execution_status: None,
+                                                                            }
+                                                                        ),
+                                                                    }
+                                                                );
+                                                                self.pages.current_page_index = (self.pages.pages.len() - 1) as u16;
+                                                            }
+                                                        });
+                                                    }
                                                 }
+                                            });
+                                        }).header_response)
+                                    }
+                                    Some(structs::DbState::Error(e)) => {
+                                        let warning = ui.add(self.icons.warning.clone());
+                                        if warning.hovered() {
+                                            egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), id, |ui| {
+                                                ui.label(e);
+                                            });
+                                        }
+
+                                        Some(ui.label(format!(
+                                            "{} ({}:{})",
+                                            server.alias, server.ip, server.port
+                                        )))
+                                    }
+                                    None => {
+                                        let dbs = self.db_manager.dbs.clone();
+                                        let server_id_clone = server_id.clone();
+                                        let server_clone = server.clone();
+                                        {
+                                            let mut dbs = dbs.lock().expect("Failed to lock dbs mutex");
+                                            dbs.insert(server_id.clone(), structs::DbState::Loading);
+                                        }
+                                        self.runtime.spawn(async move {
+                                            Self::load_db(server_id_clone, server_clone, dbs).await;
+                                        });
+                                        ui.add(Spinner::new());
+
+                                        None
+                                    }
+                                };
+
+                                if let Some(server_button) = server_button {
+                                    if server_button.secondary_clicked() {
+                                        ui.memory_mut(|mem| mem.open_popup(id));
+                                    }
+
+                                    if ui.memory(|mem| mem.is_popup_open(id)) {
+                                        server_button.context_menu(|ui| {
+                                            if ui.button("Delete").clicked() {
+                                                ui.memory_mut(|mem| mem.close_popup());
+                                                self.delete_server_window.show = true;
+                                                self.delete_server_window.server = Some(server.clone());
                                             }
                                         });
-                                    }).header_response)
-                                }
-                                Some(structs::DbState::Error(e)) => {
-                                    let warning = ui.add(self.icons.warning.clone());
-                                    if warning.hovered() {
-                                        egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), id, |ui| {
-                                            ui.label(e);
-                                        });
                                     }
-
-                                    Some(ui.label(format!(
-                                        "{} ({}:{})",
-                                        server.alias, server.ip, server.port
-                                    )))
                                 }
-                                None => {
-                                    let dbs = self.db_manager.dbs.clone();
-                                    let server_id_clone = server_id.clone();
-                                    let server_clone = server.clone();
-                                    {
-                                        let mut dbs = dbs.lock().expect("Failed to lock dbs mutex");
-                                        dbs.insert(server_id.clone(), structs::DbState::Loading);
-                                    }
-                                    self.runtime.spawn(async move {
-                                        Self::load_db(server_id_clone, server_clone, dbs).await;
-                                    });
-                                    ui.add(Spinner::new());
+                            });
+                        }
+                    });
 
-                                    None
-                                }
-                            };
+                    ui.separator();
 
-                            if let Some(server_button) = server_button {
-                                if server_button.secondary_clicked() {
-                                    ui.memory_mut(|mem| mem.open_popup(id));
-                                }
-
-                                if ui.memory(|mem| mem.is_popup_open(id)) {
-                                    server_button.context_menu(|ui| {
-                                        if ui.button("Delete").clicked() {
-                                            ui.memory_mut(|mem| mem.close_popup());
-                                            self.delete_server_window.show = true;
-                                            self.delete_server_window.server = Some(server.clone());
-                                        }
-                                    });
-                                }
-                            }
-                        });
+                    if ui.button("Add server").clicked() {
+                        self.add_server_window.show = true;
                     }
                 });
-
-            ui.separator();
-
-            if ui.button("Add server").clicked() {
-                self.add_server_window.show = true;
-            }
         });
 
         self.update_windows(ctx, _frame);
