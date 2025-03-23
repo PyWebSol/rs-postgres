@@ -39,3 +39,7 @@ sha2 = "0.10.8"
 
 [package.metadata.winresource]
 icon = ["assets/icon.png"]
+
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"

@@ -717,6 +717,8 @@ impl Main<'_> {
 
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.set_theme(egui::Theme::Dark);
+
         if self.login_window.show {
             CentralPanel::default().show(ctx, |_| {});
 
