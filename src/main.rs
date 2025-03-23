@@ -30,7 +30,7 @@ fn main() {
         .with_icon(utils::load_icon());
 
     eframe::run_native(
-        "Rs-Postgres",
+        format!("Rs-Postgres (v{})", env!("CARGO_PKG_VERSION")).as_str(),
         options,
         Box::new(|cc| Ok(Box::new(frames::Main::new(&cc.egui_ctx)))),
     ).unwrap();
