@@ -25,7 +25,11 @@ cargo run --release
 ```
 
 ## Usage 🖥️
-1. **Add Server Connection**
+1. **Login**
+   - Enter your encryption password or create new one
+   - Click "Login" (Enter)
+
+2. **Add Server Connection**
    - Click "Add Server" in left panel
    - Enter connection details:
      ```yaml
@@ -37,12 +41,12 @@ cargo run --release
      Service DB: postgres
      ```
 
-2. **Execute Queries**
+3. **Execute Queries**
    - Select database in connection tree
    - Write SQL in editor panel
    - Click "Run" (F5) to execute
 
-3. **Result Handling**
+4. **Result Handling**
    - View results in table
    - Click on cells to copy values
 
