@@ -30,8 +30,8 @@ pub struct AddServerWindow {
     pub service_database_field: String,
 }
 
-impl AddServerWindow {
-    pub fn default() -> Self {
+impl Default for AddServerWindow {
+    fn default() -> Self {
         Self {
             show: false,
             name_field: String::new(),
@@ -44,32 +44,16 @@ impl AddServerWindow {
     }
 }
 
+#[derive(Default)]
 pub struct DeleteServerWindow {
     pub show: bool,
     pub server: Option<Server>,
 }
 
-impl DeleteServerWindow {
-    pub fn default() -> Self {
-        Self {
-            show: false,
-            server: None,
-        }
-    }
-}
-
+#[derive(Default)]
 pub struct SQLResponseCopyWindow {
     pub show: bool,
     pub response: Option<String>,
-}
-
-impl SQLResponseCopyWindow {
-    pub fn default() -> Self {
-        Self {
-            show: false,
-            response: None,
-        }
-    }
 }
 
 pub struct LoginWindow {
@@ -79,8 +63,8 @@ pub struct LoginWindow {
     pub error: Option<String>,
 }
 
-impl LoginWindow {
-    pub fn default() -> Self {
+impl Default for LoginWindow {
+    fn default() -> Self {
         Self {
             show: true,
             clear_storage: false,
@@ -178,8 +162,8 @@ pub struct Page {
     pub page_type: PageType,
 }
 
-impl Page {
-    pub fn default() -> Self {
+impl Default for Page {
+    fn default() -> Self {
         Self {
             title: String::from("Welcome"),
             page_type: PageType::Welcome,
@@ -193,8 +177,8 @@ pub struct Pages {
     pub pages: Vec<Page>,
 }
 
-impl Pages {
-    pub fn default() -> Self {
+impl Default for Pages {
+    fn default() -> Self {
         Self {
             current_page_index: 0,
             pages: vec![Page::default()],
