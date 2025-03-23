@@ -852,14 +852,9 @@ impl App for Main<'_> {
                         });
                     }
 
-                    ui.horizontal(|ui| {
-                        ui.add_space(8.0);
-                        ui.separator();
-    
-                        if ui.button("Add server").clicked() {
-                            self.add_server_window.show = true;
-                        }
-                    });
+                    if ui.button("Add server").clicked() {
+                        self.add_server_window.show = true;
+                    }
                 });
             });
 

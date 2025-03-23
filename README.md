@@ -79,6 +79,7 @@ cargo run -- --debug
 If you have any questions, do not hesitate to write to me: https://t.me/bot_token
 
 # Screenshots 📸
+![Login page](assets/screenshots/login.png)
 ![Welcome page](assets/screenshots/welcome.png)
 ![Add server](assets/screenshots/add_server.png)
 ![SQL query tool](assets/screenshots/sql_query_tool.png)
