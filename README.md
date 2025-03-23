@@ -65,7 +65,7 @@ cargo run -- --debug
 ```
 
 ## Roadmap 🗺️
-- [ ] SQL scripts opening and saving
+- [x] SQL scripts opening and saving
 - [ ] Creating new databases and tables in the connection tree
 - [ ] Connection health monitoring
 - [x] Query execution time tracking

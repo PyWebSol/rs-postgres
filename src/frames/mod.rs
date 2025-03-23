@@ -11,12 +11,16 @@ use egui::{
     Key,
 };
 use egui_extras::{TableBuilder, Column};
+use egui_file_dialog::FileDialog;
 use log::{info, error};
 use std::fs as std_fs;
 use std::collections::HashMap;
+use std::io::Read;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use crate::utils::{encrypt_string, decrypt_string};
+use std::fs::File;
 
 struct DbManager {
     dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
@@ -34,6 +38,8 @@ pub struct Main<'a> {
     pages: structs::Pages,
     actions: Vec<structs::Action>,
     password: Option<String>,
+    select_file_dialog: FileDialog,
+    select_file_dialog_action: Option<structs::SelectFileDialogAction>,
 }
 
 impl Main<'_> {
@@ -60,6 +66,8 @@ impl Main<'_> {
             pages: structs::Pages::default(),
             actions: Vec::new(),
             password: None,
+            select_file_dialog: FileDialog::new(),
+            select_file_dialog_action: None,
         };
 
         main.load_config();
@@ -185,6 +193,15 @@ impl Main<'_> {
             let mut sql_query_execution_status = sql_query_execution_status.lock().unwrap();
             *sql_query_execution_status = execution_status;
         }
+    }
+
+    fn save_code(sqlquery_page: &mut structs::SQLQueryPage) {
+        if !sqlquery_page.code.ends_with("\n") {
+            sqlquery_page.code = format!("{}\n", sqlquery_page.code);
+        }
+
+        let mut file = File::create(sqlquery_page.code_file_path.as_ref().unwrap()).unwrap();
+        file.write_all(sqlquery_page.code.as_bytes()).unwrap();
     }
 
     fn update_windows(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -476,7 +493,6 @@ impl Main<'_> {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
                                     ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
-
                                     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                                         let code_is_empty = sqlquery_page.code.is_empty();
 
@@ -493,8 +509,61 @@ impl Main<'_> {
                                                 Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
                                             });
                                         }
+
+                                        if ui.add_enabled(!code_is_empty, Button::new("Save")).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::S)) && !code_is_empty) {
+                                            if sqlquery_page.code_file_path.is_some() {
+                                                Self::save_code(sqlquery_page);
+                                            } else {
+                                                self.select_file_dialog_action = Some(structs::SelectFileDialogAction::SaveFile);
+                                                self.select_file_dialog.save_file();
+                                            }
+                                        }
+                                        if ui.button("Open").clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::O))) {
+                                            self.select_file_dialog_action = Some(structs::SelectFileDialogAction::OpenFile);
+                                            self.select_file_dialog.pick_file();
+                                        }
+
+                                        self.select_file_dialog.update(ctx);
+
+                                        if let Some(action) = &self.select_file_dialog_action {
+                                            match action {
+                                                structs::SelectFileDialogAction::SaveFile => {
+                                                    if let Some(code_file_path) = self.select_file_dialog.take_picked() {
+                                                        self.select_file_dialog_action = None;
+
+                                                        sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
+
+                                                        Self::save_code(sqlquery_page);
+                                                    }
+                                                },
+                                                structs::SelectFileDialogAction::OpenFile => {
+                                                    if let Some(code_file_path) = self.select_file_dialog.take_picked() {
+                                                        self.select_file_dialog_action = None;
+
+                                                        sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
+
+                                                        match File::open(code_file_path) {
+                                                            Ok(mut file) => {
+                                                                let mut file_content = String::new();
+                                                                let _ = file.read_to_string(&mut file_content);
+                                                                
+                                                                sqlquery_page.code = file_content;
+                                                            },
+                                                            Err(_) => {},
+                                                        }
+                                                    }
+                                                },
+                                            }
+                                        }
                                     });
                                 });
+
+                                if let Some(code_file_path) = &sqlquery_page.code_file_path {
+                                    ui.horizontal(|ui| {
+                                        ui.label("File: ");
+                                        ui.label(RichText::new(code_file_path).code().background_color(Color32::DARK_GRAY));
+                                    });
+                                }
 
                                 let mut theme = egui_extras::syntax_highlighting::CodeTheme::light(12.0);
 
@@ -793,6 +862,7 @@ impl App for Main<'_> {
                                                                     name: database.name.clone(),
                                                                     database: database.database.clone(),
                                                                     code: String::new(),
+                                                                    code_file_path: None,
                                                                     sql_query_execution_status: None,
                                                                 }),
                                                             });

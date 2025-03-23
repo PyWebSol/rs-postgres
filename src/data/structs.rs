@@ -147,6 +147,7 @@ pub struct SQLQueryPage {
     pub name: String,
     pub database: crate::database::Database,
     pub code: String,
+    pub code_file_path: Option<String>,
     pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatusType>>>,
 }
 
@@ -189,4 +190,10 @@ impl Default for Pages {
 #[derive(Clone)]
 pub enum Action {
     ClosePage(usize),
+}
+
+#[derive(Clone)]
+pub enum SelectFileDialogAction {
+    SaveFile,
+    OpenFile,
 }
