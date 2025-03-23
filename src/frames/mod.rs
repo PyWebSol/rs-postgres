@@ -2,6 +2,7 @@ mod widgets;
 
 use crate::data::*;
 use crate::database;
+use crate::utils;
 
 use eframe::{egui, App};
 use egui::{
@@ -423,6 +424,7 @@ impl Main<'_> {
                                 ui.separator();
                                 ui.vertical(|ui| {
                                     ui.label("• Lightweight and fast");
+                                    ui.label("• Secure encryption of server credentials");
                                     ui.label("• Connect to multiple PostgreSQL servers");
                                     ui.label("• Manage databases through GUI");
                                     ui.label("• Execute SQL queries with results preview");
@@ -668,6 +670,8 @@ impl App for Main<'_> {
                                 self.login_window = structs::LoginWindow::default();
 
                                 self.config.servers = Vec::new();
+                                self.config.password_hash = None;
+
                                 self.save_config();
                             }
                             if ui.button("No").clicked() {
@@ -686,7 +690,12 @@ impl App for Main<'_> {
                 }
 
                 ui.horizontal(|ui| {
-                    ui.label("Enter encryption password:");
+                    if self.config.password_hash.is_some() {
+                        ui.label("Enter encryption password:");
+                    } else {
+                        ui.label("Create encryption password:");
+                    }
+                    
                     TextEdit::singleline(&mut self.login_window.password).password(true).show(ui);
                 });
 
@@ -701,14 +710,30 @@ impl App for Main<'_> {
                                     self.login_window.clear_storage = true;
                                 }
                             }
-                            if ui.button("Login").clicked() {
-                                self.login_window.error = None;
-                                self.password = Some(self.login_window.password.clone());
+                            if ui.button("Login").clicked() || (ui.input(|i| i.key_pressed(Key::Enter))) {
+                                let password = self.login_window.password.clone();
 
-                                self.decrypt_passwords();
+                                self.login_window.error = None;
+                                self.password = Some(password.clone());
+
+                                ui.spinner();
+
+                                if self.config.password_hash.is_some() {
+                                    if utils::create_checksum(&password) != self.config.password_hash.clone().unwrap() {
+                                        self.login_window.error = Some("Incorrect password: hash mismatch".to_string());
+                                    }
+                                }
 
                                 if self.login_window.error.is_none() {
+                                    self.decrypt_passwords();
+                                }
+                                if self.login_window.error.is_none() {
                                     self.login_window.show = false;
+
+                                    if self.config.password_hash.is_none() {
+                                        self.config.password_hash = Some(utils::create_checksum(&password));
+                                        self.save_config();
+                                    }
                                 }
                             }
                         });

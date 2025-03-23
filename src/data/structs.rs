@@ -4,9 +4,10 @@ use indexmap::IndexMap;
 
 use std::sync::{Arc, Mutex};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Config {
     pub servers: Vec<Server>,
+    pub password_hash: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -17,14 +18,6 @@ pub struct Server {
     pub user: String,
     pub password: String,
     pub service_database: String,
-}
-
-impl Config {
-    pub fn default() -> Self {
-        Self {
-            servers: Vec::new(),
-        }
-    }
 }
 
 pub struct AddServerWindow {

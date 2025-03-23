@@ -1,6 +1,7 @@
 use crate::data::icons;
 use ring::{aead, pbkdf2, rand};
 use ring::rand::SecureRandom;
+use sha2::Digest;
 use std::num::NonZeroU32;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
@@ -163,4 +164,12 @@ fn deserialize_encrypted_data(serialized: &str) -> Result<EncryptedData, String>
 		nonce,
 		ciphertext,
 	})
+}
+
+pub fn create_checksum(text: impl ToString) -> String {
+    let mut hasher = sha2::Sha256::new();
+
+    hasher.update(text.to_string());
+
+    format!("{:x}", hasher.finalize())
 }
