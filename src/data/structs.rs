@@ -4,12 +4,12 @@ use indexmap::IndexMap;
 
 use std::sync::{Arc, Mutex};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub servers: Vec<Server>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Server {
     pub alias: String,
     pub ip: String,
@@ -75,6 +75,24 @@ impl SQLResponseCopyWindow {
         Self {
             show: false,
             response: None,
+        }
+    }
+}
+
+pub struct LoginWindow {
+    pub show: bool,
+    pub clear_storage: bool,
+    pub password: String,
+    pub error: Option<String>,
+}
+
+impl LoginWindow {
+    pub fn default() -> Self {
+        Self {
+            show: true,
+            clear_storage: false,
+            password: String::new(),
+            error: None,
         }
     }
 }

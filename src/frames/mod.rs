@@ -5,7 +5,7 @@ use crate::database;
 
 use eframe::{egui, App};
 use egui::{
-    RichText, Modal, SidePanel, Spinner, Layout, Align, TextEdit, Color32,
+    RichText, Modal, CentralPanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, Grid, ScrollArea, Label,
     Key,
 };
@@ -15,6 +15,7 @@ use std::fs as std_fs;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use crate::utils::{encrypt_string, decrypt_string};
 
 struct DbManager {
     dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
@@ -26,10 +27,12 @@ pub struct Main<'a> {
     add_server_window: structs::AddServerWindow,
     delete_server_window: structs::DeleteServerWindow,
     sql_response_copy_window: structs::SQLResponseCopyWindow,
+    login_window: structs::LoginWindow,
     icons: structs::Icons<'a>,
     runtime: tokio::runtime::Runtime,
     pages: structs::Pages,
     actions: Vec<structs::Action>,
+    password: Option<String>,
 }
 
 impl Main<'_> {
@@ -47,6 +50,7 @@ impl Main<'_> {
             add_server_window: structs::AddServerWindow::default(),
             delete_server_window: structs::DeleteServerWindow::default(),
             sql_response_copy_window: structs::SQLResponseCopyWindow::default(),
+            login_window: structs::LoginWindow::default(),
             icons: structs::Icons {
                 warning: egui::Image::new(icons::WARNING).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
                 rs_postgres: egui::Image::new(icons::RS_POSTGRES).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
@@ -54,6 +58,7 @@ impl Main<'_> {
             runtime,
             pages: structs::Pages::default(),
             actions: Vec::new(),
+            password: None,
         };
 
         main.load_config();
@@ -76,6 +81,7 @@ impl Main<'_> {
 
         let config_file = std_fs::read_to_string(&config_path).unwrap();
         let config: structs::Config = serde_json::from_str(&config_file).unwrap();
+
         self.config = config;
     }
 
@@ -83,10 +89,35 @@ impl Main<'_> {
         let config_dir = dirs::config_dir().unwrap().join("rs-postgres");
         let config_path = config_dir.join("config.json");
 
+        let mut config = self.config.clone();
+        config.servers.iter_mut().for_each(|server| {
+            server.password = encrypt_string(&server.password, self.password.as_ref().unwrap()).unwrap();
+        });
+
         std_fs::write(
             &config_path,
-            serde_json::to_string(&self.config).unwrap(),
+            serde_json::to_string(&config).unwrap(),
         ).unwrap();
+    }
+
+    fn decrypt_passwords(&mut self) {
+        for server in self.config.servers.iter_mut() {
+            let encrypted_password = decrypt_string(
+                &server.password,
+                self.password.as_ref().unwrap_or(&"".to_string())
+            );
+
+            match encrypted_password {
+                Ok(password) => {
+                    server.password = password;
+                },
+                Err(e) => {
+                    self.login_window.error = Some(format!("Incorrect password: {}", e));
+
+                    return;
+                },
+            }
+        }
     }
 
     async fn load_db(id: String, server: structs::Server, dbs: Arc<Mutex<HashMap<String, structs::DbState>>>) {
@@ -369,7 +400,7 @@ impl Main<'_> {
         });
                 
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             ScrollArea::both()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
@@ -620,6 +651,74 @@ impl Main<'_> {
 
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.login_window.show {
+            CentralPanel::default().show(ctx, |_| {});
+
+            Modal::new(Id::new("login_window")).show(ctx, |ui| {
+                ui.set_width(360.0);
+
+                if self.login_window.clear_storage {
+                    widgets::modal_label(ui, "Clear storage");
+
+                    ui.label(RichText::new("Do you want to clear storage? This action is irreversible."));
+
+                    ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                        ui.horizontal(|ui| {
+                            if ui.button("Yes").clicked() {
+                                self.login_window = structs::LoginWindow::default();
+
+                                self.config.servers = Vec::new();
+                                self.save_config();
+                            }
+                            if ui.button("No").clicked() {
+                                self.login_window.clear_storage = false;
+                            }
+                        });
+                    });
+
+                    return;
+                }
+                
+                widgets::modal_label(ui, "Login");
+
+                if let Some(error) = &self.login_window.error {
+                    ui.label(RichText::new(error).color(Color32::RED));
+                }
+
+                ui.horizontal(|ui| {
+                    ui.label("Enter encryption password:");
+                    TextEdit::singleline(&mut self.login_window.password).password(true).show(ui);
+                });
+
+                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                    ui.add_space(8.0);
+                    ui.separator();
+
+                    ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                        ui.horizontal(|ui| {
+                            if !self.config.servers.is_empty() {
+                                if ui.button(RichText::new("Clear storage").color(Color32::RED)).clicked() {
+                                    self.login_window.clear_storage = true;
+                                }
+                            }
+                            if ui.button("Login").clicked() {
+                                self.login_window.error = None;
+                                self.password = Some(self.login_window.password.clone());
+
+                                self.decrypt_passwords();
+
+                                if self.login_window.error.is_none() {
+                                    self.login_window.show = false;
+                                }
+                            }
+                        });
+                    });
+                });
+            });
+
+            return;
+        }
+
         widgets::left_panel(ctx, |ui| {
             CollapsingHeader::new("Servers")
                 .default_open(true)
@@ -727,13 +826,16 @@ impl App for Main<'_> {
                             }
                         });
                     }
+
+                    ui.horizontal(|ui| {
+                        ui.add_space(8.0);
+                        ui.separator();
+    
+                        if ui.button("Add server").clicked() {
+                            self.add_server_window.show = true;
+                        }
+                    });
                 });
-
-                ui.separator();
-
-                if ui.button("Add server").clicked() {
-                    self.add_server_window.show = true;
-                }
             });
 
         self.update_windows(ctx, _frame);

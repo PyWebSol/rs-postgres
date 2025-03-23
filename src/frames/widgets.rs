@@ -1,8 +1,10 @@
-use egui::{Context, ScrollArea, SidePanel, TopBottomPanel, Ui};
+use egui::{
+    Context, ScrollArea, SidePanel, TopBottomPanel, Ui, RichText,
+};
 
-pub fn modal_label(ui: &mut Ui, title: impl ToString) {
+pub fn modal_label(ui: &mut Ui, title: impl Into<RichText>) {
     ui.vertical_centered(|ui| {
-        ui.heading(title.to_string());
+        ui.heading(title);
 
         ui.separator();
         ui.add_space(8.0);
