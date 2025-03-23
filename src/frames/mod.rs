@@ -209,7 +209,7 @@ impl Main<'_> {
             Modal::new(Id::new("add_server_modal"))
                 .show(ctx, |ui| {
                     widgets::modal_label(ui, "Add server");
-                    
+
                     Grid::new("server_form")
                         .num_columns(2)
                         .spacing([40.0, 4.0])
@@ -361,7 +361,7 @@ impl Main<'_> {
                 ScrollArea::both().max_height(screen_rect.height() / 1.5).show(ui, |ui| {
                     ui.label(self.sql_response_copy_window.response.clone().unwrap());
                 });
-                
+
                 ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                     ui.separator();
 
@@ -416,7 +416,7 @@ impl Main<'_> {
                 }
             }
         });
-                
+
 
         CentralPanel::default().show(ctx, |ui| {
             ScrollArea::both()
@@ -425,9 +425,9 @@ impl Main<'_> {
                     if self.pages.current_page_index as usize >= self.pages.pages.len() {
                         return;
                     }
-    
+
                     let page = &mut self.pages.pages[self.pages.current_page_index as usize];
-    
+
                     match &mut page.page_type {
                         structs::PageType::Welcome => {
                             ui.vertical(|ui| {
@@ -498,13 +498,13 @@ impl Main<'_> {
 
                                         if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
                                             let runtime = &self.runtime;
-            
+
                                             sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
 
                                             let database_clone = sqlquery_page.database.clone();
                                             let code_clone = sqlquery_page.code.clone();
                                             let sql_query_execution_status = sqlquery_page.sql_query_execution_status.clone();
-            
+
                                             runtime.spawn(async move {
                                                 Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
                                             });
@@ -546,7 +546,7 @@ impl Main<'_> {
                                                             Ok(mut file) => {
                                                                 let mut file_content = String::new();
                                                                 let _ = file.read_to_string(&mut file_content);
-                                                                
+
                                                                 sqlquery_page.code = file_content;
                                                             },
                                                             Err(_) => {},
@@ -657,7 +657,7 @@ impl Main<'_> {
                                                                     row.col(|ui| {
                                                                         let content = value[i].to_string();
                                                                         let label = content.clone().replace("\n", " ");
-                                                                        
+
                                                                         let label = Label::new(label)
                                                                             .wrap_mode(egui::TextWrapMode::Truncate);
                                                                         let label_widget = ui.add(label);
@@ -686,7 +686,7 @@ impl Main<'_> {
                                                 ui.add(self.icons.warning.clone());
                                                 ui.label("Error");
                                             });
-                                            
+
                                             ui.heading(e);
                                         }
                                     }
@@ -746,7 +746,7 @@ impl App for Main<'_> {
 
                     return;
                 }
-                
+
                 widgets::modal_label(ui, "Login");
 
                 if let Some(error) = &self.login_window.error {
@@ -759,7 +759,7 @@ impl App for Main<'_> {
                     } else {
                         ui.label("Create encryption password:");
                     }
-                    
+
                     TextEdit::singleline(&mut self.login_window.password).password(true).show(ui);
                 });
 

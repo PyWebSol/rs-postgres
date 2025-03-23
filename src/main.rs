@@ -10,18 +10,18 @@ use std::env;
 
 fn main() {
     let mut builder = Builder::new();
-    
+
     let args: Vec<String> = env::args().collect();
     if args.contains(&String::from("--debug")) {
         builder.filter_level(LevelFilter::Debug);
     } else {
         builder.filter_level(LevelFilter::Info);
     }
-    
+
     builder.filter_module("zbus", LevelFilter::Error);
     builder.filter_module("tracing", LevelFilter::Error);
     builder.filter_module("winit", LevelFilter::Error);
-    
+
     builder.init();
 
     let mut options = NativeOptions::default();
