@@ -676,11 +676,6 @@ impl Main<'_> {
                                                         }
                                                     });
                                                 } else {
-                                                    ui.horizontal(|ui| {
-                                                        ui.add(self.icons.warning.clone());
-                                                        ui.label("Error");
-                                                    });
-
                                                     ui.heading("No data returned");
                                                 }
                                         }
