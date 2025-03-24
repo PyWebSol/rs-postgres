@@ -285,11 +285,11 @@ impl Translator {
 
     pub fn get_started_content(&self) -> String {
         match self.language {
-            Language::English => r#"1. Click 'Add server' in left panel
+            Language::English => r#"1. Click "Add server" in left panel
 2. Enter server connection parameters
 3. Select database in connection tree
 4. Start working with SQL queries by clicking "SQL Query" button or choosing preset script"#.to_string(),
-            Language::Russian => r#"1. Нажмите «Добавить сервер» на левой панели
+            Language::Russian => r#"1. Нажмите "Добавить сервер" на левой панели
 2. Введите параметры подключения к серверу
 3. Выберите базу данных в дереве соединений.
 4. Начните работу с SQL-запросами, нажав кнопку "SQL Query" или выбрав предустановленный скрипт."#.to_string(),
