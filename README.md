@@ -86,6 +86,7 @@ If you have any questions, do not hesitate to write to me: https://t.me/bot_toke
 ![Welcome page](assets/screenshots/welcome.png)
 ![Add server](assets/screenshots/add_server.png)
 ![SQL query tool](assets/screenshots/sql_query_tool.png)
+![Settings](assets/screenshots/settings.png)
 
 ---
 
