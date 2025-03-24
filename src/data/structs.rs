@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex};
 
 use egui::{Color32, Theme as EguiTheme};
 
+use crate::data::translates::Language;
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Config {
     pub servers: Vec<Server>,
@@ -27,9 +29,11 @@ pub struct Server {
 pub struct Settings {
     pub scale_factor: f32,
     pub theme: Theme,
+    pub language: Language,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum Theme {
     Light,
     Dark,
@@ -63,7 +67,7 @@ impl Theme {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { scale_factor: 1.125, theme: Theme::NotInited }
+        Self { scale_factor: 1.125, theme: Theme::NotInited, language: Language::English }
     }
 }
 
@@ -121,6 +125,7 @@ pub struct SettingsWindow {
     pub show: bool,
     pub scale_factor: f32,
     pub theme: Theme,
+    pub language: Option<Language>,
 }
 
 impl Default for SettingsWindow {
@@ -129,6 +134,7 @@ impl Default for SettingsWindow {
             show: false,
             scale_factor: 0.0,
             theme: Theme::NotInited,
+            language: None,
         }
     }
 }

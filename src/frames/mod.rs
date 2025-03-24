@@ -44,6 +44,7 @@ pub struct Main<'a> {
     password: Option<String>,
     select_file_dialog: FileDialog,
     select_file_dialog_action: Option<structs::SelectFileDialogAction>,
+    trans: translates::Translator,
 }
 
 impl Main<'_> {
@@ -75,6 +76,7 @@ impl Main<'_> {
             password: None,
             select_file_dialog: FileDialog::new(),
             select_file_dialog_action: None,
+            trans: translates::Translator::new(translates::Language::English),
         };
 
         main.load_config();
@@ -126,12 +128,16 @@ impl Main<'_> {
             ).unwrap();
         }
 
+        self.trans.language = config.settings.language.clone();
+
         self.config = config;
     }
 
     fn save_config(&mut self) {
         let config_dir = dirs::config_dir().unwrap().join("rs-postgres");
         let config_path = config_dir.join("config.json");
+
+        self.trans.language = self.config.settings.language.clone();
 
         let mut config = self.config.clone();
         config.servers.iter_mut().for_each(|server| {
@@ -318,7 +324,7 @@ impl Main<'_> {
         if self.add_server_window.show {
             Modal::new(Id::new("add_server_modal"))
                 .show(ctx, |ui| {
-                    widgets::modal_label(ui, "Add server");
+                    widgets::modal_label(ui, self.trans.add_server());
 
                     Grid::new("server_form")
                         .num_columns(2)
@@ -327,15 +333,15 @@ impl Main<'_> {
                         .show(ui, |ui| {
                             let input_color = self.config.settings.theme.text_input_color();
 
-                            ui.label("Name");
+                            ui.label(self.trans.name());
                             ui.add(TextEdit::singleline(&mut self.add_server_window.name_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Server address");
+                            ui.label(self.trans.server_address());
                             ui.add(TextEdit::singleline(&mut self.add_server_window.ip_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Port");
+                            ui.label(self.trans.port());
                             let is_error = self.add_server_window.port_field.parse::<u16>().is_err();
                             let mut field = TextEdit::singleline(&mut self.add_server_window.port_field);
                             if is_error {
@@ -344,28 +350,28 @@ impl Main<'_> {
                             ui.add(field.background_color(input_color));
                             ui.end_row();
 
-                            ui.label("User");
+                            ui.label(self.trans.user());
                             ui.add(TextEdit::singleline(&mut self.add_server_window.user_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Password");
+                            ui.label(self.trans.password());
                             ui.add(TextEdit::singleline(&mut self.add_server_window.password_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Service DB");
+                            ui.label(self.trans.service_database());
                             ui.add(TextEdit::singleline(&mut self.add_server_window.service_database_field).background_color(input_color));
                             ui.end_row();
                         });
 
                     let is_name_error = {
                         if self.add_server_window.name_field.is_empty() {
-                            ui.label("• Name is required");
+                            ui.label(self.trans.name_is_required());
                             true
                         } else if self.add_server_window.name_field.chars().count() > 32 {
-                            ui.label("• Name must be less than 32 characters");
+                            ui.label(self.trans.name_must_be_less_than_32_characters());
                             true
                         } else if self.config.servers.iter().any(|server| server.alias == self.add_server_window.name_field) {
-                            ui.label("• Name must be unique");
+                            ui.label(self.trans.name_must_be_unique());
                             true
                         } else {
                             false
@@ -373,7 +379,7 @@ impl Main<'_> {
                     };
                     let is_ip_error = {
                         if self.add_server_window.ip_field.is_empty() {
-                            ui.label("• IP is required");
+                            ui.label(self.trans.ip_is_required());
                             true
                         } else {
                             false
@@ -381,7 +387,7 @@ impl Main<'_> {
                     };
                     let is_port_error = {
                         if self.add_server_window.port_field.parse::<u16>().is_err() {
-                            ui.label("• Incorrect port value");
+                            ui.label(self.trans.incorrect_port_value());
                             true
                         } else {
                             false
@@ -389,20 +395,28 @@ impl Main<'_> {
                     };
                     let is_user_error = {
                         if self.add_server_window.user_field.is_empty() {
-                            ui.label("• User is required");
+                            ui.label(self.trans.user_is_required());
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    let is_service_database_error = {
+                        if self.add_server_window.service_database_field.is_empty() {
+                            ui.label(self.trans.service_database_is_required());
                             true
                         } else {
                             false
                         }
                     };
 
-                    let enable_save_button = !is_name_error && !is_ip_error && !is_port_error && !is_user_error;
+                    let enable_save_button = !is_name_error && !is_ip_error && !is_port_error && !is_user_error && !is_service_database_error;
 
                     ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                         ui.separator();
 
                         ui.horizontal(|ui| {
-                            if ui.add_enabled(enable_save_button, Button::new("Save")).clicked() {
+                            if ui.add_enabled(enable_save_button, Button::new(self.trans.save())).clicked() {
                                 let server = structs::Server {
                                     alias: self.add_server_window.name_field.clone(),
                                     ip: self.add_server_window.ip_field.clone(),
@@ -415,7 +429,7 @@ impl Main<'_> {
                                 self.save_config();
                                 self.add_server_window = structs::AddServerWindow::default();
                             }
-                            if ui.button("Back").clicked() {
+                            if ui.button(self.trans.back()).clicked() {
                                 self.add_server_window = structs::AddServerWindow::default();
                             }
                         });
@@ -439,20 +453,20 @@ impl Main<'_> {
 
                 if let Some(idx_to_delete) = idx_to_delete {
                     Modal::new(Id::new("delete_server_modal")).show(ctx, |ui| {
-                        widgets::modal_label(ui, "Delete server");
+                        widgets::modal_label(ui, self.trans.delete_server());
 
-                        ui.label("Are you sure you want to delete this server?");
+                        ui.label(self.trans.delete_server_confirmation());
 
                         ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                             ui.separator();
 
                             ui.horizontal(|ui| {
-                                if ui.button("Yes").clicked() {
+                                if ui.button(self.trans.yes()).clicked() {
                                     self.config.servers.remove(idx_to_delete);
                                     self.save_config();
                                     self.delete_server_window = structs::DeleteServerWindow::default();
                                 }
-                                if ui.button("No").clicked() {
+                                if ui.button(self.trans.no()).clicked() {
                                     self.delete_server_window = structs::DeleteServerWindow::default();
                                 }
                             });
@@ -464,7 +478,7 @@ impl Main<'_> {
 
         if self.edit_server_window.show {
             Modal::new(Id::new("edit_server_modal")).show(ctx, |ui| {
-                widgets::modal_label(ui, "Edit server");
+                widgets::modal_label(ui, self.trans.edit_server());
 
                     Grid::new("server_form")
                         .num_columns(2)
@@ -473,15 +487,15 @@ impl Main<'_> {
                         .show(ui, |ui| {
                             let input_color = self.config.settings.theme.text_input_color();
 
-                            ui.label("Name");
+                            ui.label(self.trans.name());
                             ui.add(TextEdit::singleline(&mut self.edit_server_window.name_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Server address");
+                            ui.label(self.trans.server_address());
                             ui.add(TextEdit::singleline(&mut self.edit_server_window.ip_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Port");
+                            ui.label(self.trans.port());
                             let is_error = self.edit_server_window.port_field.parse::<u16>().is_err();
                             let mut field = TextEdit::singleline(&mut self.edit_server_window.port_field);
                             if is_error {
@@ -490,28 +504,28 @@ impl Main<'_> {
                             ui.add(field.background_color(input_color));
                             ui.end_row();
 
-                            ui.label("User");
+                            ui.label(self.trans.user());
                             ui.add(TextEdit::singleline(&mut self.edit_server_window.user_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Password");
+                            ui.label(self.trans.password());
                             ui.add(TextEdit::singleline(&mut self.edit_server_window.password_field).background_color(input_color));
                             ui.end_row();
 
-                            ui.label("Service DB");
+                            ui.label(self.trans.service_database());
                             ui.add(TextEdit::singleline(&mut self.edit_server_window.service_database_field).background_color(input_color));
                             ui.end_row();
                         });
 
                     let is_name_error = {
                         if self.edit_server_window.name_field.is_empty() {
-                            ui.label("• Name is required");
+                            ui.label(self.trans.name_is_required());
                             true
                         } else if self.edit_server_window.name_field.chars().count() > 32 {
-                            ui.label("• Name must be less than 32 characters");
+                            ui.label(self.trans.name_must_be_less_than_32_characters());
                             true
                         } else if self.config.servers.iter().any(|server| server.alias == self.edit_server_window.name_field && server.alias != self.edit_server_window.original_server.as_ref().unwrap().alias) {
-                            ui.label("• Name must be unique");
+                            ui.label(self.trans.name_must_be_unique());
                             true
                         } else {
                             false
@@ -519,15 +533,18 @@ impl Main<'_> {
                     };
                     let is_ip_error = {
                         if self.edit_server_window.ip_field.is_empty() {
-                            ui.label("• IP is required");
+                            ui.label(self.trans.ip_is_required());
                             true
                         } else {
                             false
                         }
                     };
                     let is_port_error = {
-                        if self.edit_server_window.port_field.parse::<u16>().is_err() {
-                            ui.label("• Incorrect port value");
+                        if self.edit_server_window.port_field.is_empty() {
+                            ui.label(self.trans.port_is_required());
+                            true
+                        } else if self.edit_server_window.port_field.parse::<u16>().is_err() {
+                            ui.label(self.trans.incorrect_port_value());
                             true
                         } else {
                             false
@@ -535,20 +552,29 @@ impl Main<'_> {
                     };
                     let is_user_error = {
                         if self.edit_server_window.user_field.is_empty() {
-                            ui.label("• User is required");
+                            ui.label(self.trans.user_is_required());
                             true
                         } else {
                             false
                         }
                     };
 
-                    let enable_save_button = !is_name_error && !is_ip_error && !is_port_error && !is_user_error;
+                    let is_service_database_error = {
+                        if self.add_server_window.service_database_field.is_empty() {
+                            ui.label(self.trans.service_database_is_required());
+                            true
+                        } else {
+                            false
+                        }
+                    };
+
+                    let enable_save_button = !is_name_error && !is_ip_error && !is_port_error && !is_user_error && !is_service_database_error;
 
                     ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                         ui.separator();
 
                         ui.horizontal(|ui| {
-                            if ui.add_enabled(enable_save_button, Button::new("Save")).clicked() {
+                            if ui.add_enabled(enable_save_button, Button::new(self.trans.save())).clicked() {
                                 let server = structs::Server {
                                     alias: self.edit_server_window.name_field.clone(),
                                     ip: self.edit_server_window.ip_field.clone(),
@@ -582,7 +608,7 @@ impl Main<'_> {
                                     Self::reload_server(original_server_index.unwrap(), config, dbs).await;
                                 });
                             }
-                            if ui.button("Back").clicked() {
+                            if ui.button(self.trans.back()).clicked() {
                                 self.edit_server_window = structs::EditServerWindow::default();
                             }
                         });
@@ -594,7 +620,7 @@ impl Main<'_> {
             Modal::new(Id::new("sql_response_copy_modal")).show(ctx, |ui| {
                 let screen_rect = ctx.input(|i| i.screen_rect);
 
-                widgets::modal_label(ui, "Text viewer");
+                widgets::modal_label(ui, self.trans.text_viewer());
 
                 ui.set_width(if screen_rect.height() / 1.5 > 380.0 { screen_rect.height() / 1.5 } else { 380.0 });
 
@@ -606,11 +632,11 @@ impl Main<'_> {
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        if ui.button("Copy").clicked() {
-                        ui.ctx().copy_text(self.sql_response_copy_window.response.clone().unwrap());
-                        self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
-                    }
-                    if ui.button("Close").clicked() {
+                        if ui.button(self.trans.copy()).clicked() {
+                            ui.ctx().copy_text(self.sql_response_copy_window.response.clone().unwrap());
+                            self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
+                        }
+                        if ui.button(self.trans.close()).clicked() {
                             self.sql_response_copy_window = structs::SQLResponseCopyWindow::default();
                         }
                     });
@@ -625,33 +651,54 @@ impl Main<'_> {
             if !self.settings_window.theme.is_inited() {
                 self.settings_window.theme = self.config.settings.theme.clone();
             }
+            if self.settings_window.language.is_none() {
+                self.settings_window.language = Some(self.config.settings.language.clone());
+            }
 
             Modal::new(Id::new("settings_modal")).show(ctx, |ui| {
-                widgets::modal_label(ui, "Settings");
+                widgets::modal_label(ui, self.trans.settings());
 
                 Grid::new("settings_form")
                         .num_columns(2)
                         .spacing([40.0, 4.0])
                         .striped(true)
                         .show(ui, |ui| {
-                            ui.label("Scale factor");
+                            ui.label(self.trans.scale_factor());
                             ui.add(Slider::new(&mut self.settings_window.scale_factor, 1.0..=1.5));
                             ui.end_row();
 
                             ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
-                                ui.label("Theme");
+                                ui.label(self.trans.theme());
                             });
                             let theme_name = match self.settings_window.theme {
-                                structs::Theme::Light => "Light".to_string(),
-                                structs::Theme::Dark => "Dark".to_string(),
+                                structs::Theme::Light => self.trans.light(),
+                                structs::Theme::Dark => self.trans.dark(),
                                 structs::Theme::NotInited => "".to_string(),
                             };
                             CollapsingHeader::new(theme_name).show(ui, |ui| {
-                                if ui.button("Dark").clicked() {
+                                if ui.button(self.trans.dark()).clicked() {
                                     self.settings_window.theme = structs::Theme::Dark;
                                 }
-                                if ui.button("Light").clicked() {
+                                if ui.button(self.trans.light()).clicked() {
                                     self.settings_window.theme = structs::Theme::Light;
+                                }
+                            });
+                            ui.end_row();
+
+                            ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
+                                ui.label(self.trans.language());
+                            });
+                            let language_name = match self.settings_window.language {
+                                Some(translates::Language::English) => "English".to_string(),
+                                Some(translates::Language::Russian) => "Russian".to_string(),
+                                None => "".to_string(),
+                            };
+                            CollapsingHeader::new(language_name).show(ui, |ui| {
+                                if ui.button("English").clicked() {
+                                    self.settings_window.language = Some(translates::Language::English);
+                                }
+                                if ui.button("Russian").clicked() {
+                                    self.settings_window.language = Some(translates::Language::Russian);
                                 }
                             });
                             ui.end_row();
@@ -661,15 +708,16 @@ impl Main<'_> {
                     ui.separator();
 
                     ui.horizontal(|ui| {
-                        if ui.button("Save").clicked() {
+                        if ui.button(self.trans.save()).clicked() {
                             self.config.settings.scale_factor = self.settings_window.scale_factor;
                             self.config.settings.theme = self.settings_window.theme.clone();
+                            self.config.settings.language = self.settings_window.language.clone().unwrap();
 
                             self.settings_window = structs::SettingsWindow::default();
 
                             self.save_config();
                         }
-                        if ui.button("Close").clicked() {
+                        if ui.button(self.trans.close()).clicked() {
                             self.settings_window = structs::SettingsWindow::default();
                         }
                     });
@@ -708,7 +756,7 @@ impl Main<'_> {
 
                 if ui.memory(|mem| mem.is_popup_open(btn_id)) {
                     btn.context_menu(|ui| {
-                        if ui.button("Close").clicked() {
+                        if ui.button(self.trans.close()).clicked() {
                             ui.memory_mut(|mem| mem.close_popup());
                             self.actions.push(structs::Action::ClosePage(idx));
                         }
@@ -737,52 +785,41 @@ impl Main<'_> {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
                                     ui.add(self.icons.rs_postgres.clone());
-                                    ui.heading("Welcome to Rs-Postgres: Rust-based PostgreSQL client.");
+                                    ui.heading(self.trans.welcome());
                                 });
 
                                 ui.add_space(16.0);
-                                ui.label(RichText::new("Features").strong());
+                                ui.label(RichText::new(self.trans.features()).strong());
                                 ui.separator();
-                                ui.vertical(|ui| {
-                                    ui.label("• Lightweight and fast");
-                                    ui.label("• Secure encryption of server credentials");
-                                    ui.label("• Connect to multiple PostgreSQL servers");
-                                    ui.label("• Manage databases through GUI");
-                                    ui.label("• Execute SQL queries with results preview");
-                                });
+                                ui.label(self.trans.features_content());
 
                                 ui.add_space(16.0);
-                                ui.label(RichText::new("Getting Started").strong());
+                                ui.label(RichText::new(self.trans.get_started()).strong());
                                 ui.separator();
-                                ui.vertical(|ui| {
-                                    ui.label("1. Click 'Add server' in left panel");
-                                    ui.label("2. Enter server connection parameters");
-                                    ui.label("3. Select database in connection tree");
-                                    ui.label("4. Start working with SQL queries by clicking 'SQL Query' button or choosing preset script");
-                                });
+                                ui.label(self.trans.get_started_content());
 
                                 ui.add_space(16.0);
-                                ui.label(RichText::new("Resources").strong());
+                                ui.label(RichText::new(self.trans.resources()).strong());
                                 ui.separator();
                                 ui.horizontal(|ui| {
-                                    if ui.add(Button::new("🐙 GitHub").fill(Color32::TRANSPARENT))
-                                        .on_hover_text("Open repository")
+                                    if ui.add(Button::new(self.trans.github()).fill(Color32::TRANSPARENT))
+                                        .on_hover_text(self.trans.open_repo())
                                         .clicked() {
 
                                         open::that("https://github.com/pywebsol/rs-postgres").unwrap();
                                     }
                                 });
                                 ui.horizontal(|ui| {
-                                    if ui.add(Button::new("📝 License").fill(Color32::TRANSPARENT))
-                                        .on_hover_text("Open license")
+                                    if ui.add(Button::new(self.trans.license()).fill(Color32::TRANSPARENT))
+                                        .on_hover_text(self.trans.open_license())
                                         .clicked() {
 
                                         open::that("https://github.com/pywebsol/rs-postgres/blob/main/LICENSE").unwrap();
                                     }
                                 });
                                 ui.horizontal(|ui| {
-                                    if ui.add(Button::new("📨 Support").fill(Color32::TRANSPARENT))
-                                        .on_hover_text("Open telegram")
+                                    if ui.add(Button::new(self.trans.support()).fill(Color32::TRANSPARENT))
+                                        .on_hover_text(self.trans.open_support())
                                         .clicked() {
 
                                         open::that("https://t.me/bot_token").unwrap();
@@ -790,7 +827,7 @@ impl Main<'_> {
                                 });
 
                                 ui.add_space(24.0);
-                                ui.label(RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION"))).small().color(Color32::GRAY));
+                                ui.label(RichText::new(self.trans.version(env!("CARGO_PKG_VERSION"))).small().color(Color32::GRAY));
                             });
                         },
                         structs::PageType::SQLQuery(sqlquery_page) => {
@@ -798,7 +835,7 @@ impl Main<'_> {
                                 ui.horizontal(|ui| {
                                     let code_is_empty = sqlquery_page.code.is_empty();
 
-                                    if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
+                                    if ui.add_enabled(!code_is_empty, Button::new(self.trans.run_f5())).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
                                         let runtime = &self.runtime;
 
                                         sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
@@ -812,7 +849,7 @@ impl Main<'_> {
                                         });
                                     }
 
-                                    if ui.add_enabled(!code_is_empty, Button::new("Save")).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::S)) && !code_is_empty) {
+                                    if ui.add_enabled(!code_is_empty, Button::new(self.trans.save())).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::S)) && !code_is_empty) {
                                         if sqlquery_page.code_file_path.is_some() {
                                             Self::save_code(sqlquery_page);
                                         } else {
@@ -820,7 +857,7 @@ impl Main<'_> {
                                             self.select_file_dialog.save_file();
                                         }
                                     }
-                                    if ui.button("Open").clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::O))) {
+                                    if ui.button(self.trans.open()).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::O))) {
                                         self.select_file_dialog_action = Some(structs::SelectFileDialogAction::OpenFile);
                                         self.select_file_dialog.pick_file();
                                     }
@@ -863,7 +900,7 @@ impl Main<'_> {
 
                                 if let Some(code_file_path) = &sqlquery_page.code_file_path {
                                     ui.horizontal(|ui| {
-                                        ui.label("File: ");
+                                        ui.label(self.trans.file());
                                         ui.label(RichText::new(code_file_path).code().background_color(
                                             self.config.settings.theme.text_input_color()
                                         ));
@@ -900,7 +937,7 @@ impl Main<'_> {
 
                                 if ui.memory(|mem| mem.is_popup_open(Id::new("code_editor_popup"))) {
                                     code_editor.context_menu(|ui| {
-                                        if ui.button("Clear").clicked() {
+                                        if ui.button(self.trans.clear()).clicked() {
                                             sqlquery_page.code = String::new();
                                         }
                                     });
@@ -914,7 +951,7 @@ impl Main<'_> {
                                         structs::SQLQueryExecutionStatusType::Running => {
                                             ui.horizontal(|ui| {
                                                 ui.add(Spinner::new());
-                                                ui.label("Running...");
+                                                ui.label(self.trans.running());
                                             });
 
                                             ui.separator();
@@ -943,11 +980,11 @@ impl Main<'_> {
                                             let available_width = ui.available_width();
 
                                             ui.horizontal(|ui| {
-                                                ui.label("Success");
+                                                ui.label(self.trans.success());
                                                 ui.separator();
-                                                ui.label(format!("Rows: {}", rows_count));
+                                                ui.label(self.trans.rows(rows_count));
                                                 ui.separator();
-                                                ui.label(format!("Time: {} ms", execution_time));
+                                                ui.label(self.trans.time(execution_time));
                                             });
 
                                             ui.separator();
@@ -992,7 +1029,7 @@ impl Main<'_> {
                                                                                 self.sql_response_copy_window.response = Some(content);
                                                                             } else if label_widget.hovered() {
                                                                                 egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("copy_tooltip"), |ui| {
-                                                                                    ui.label("Click to copy");
+                                                                                    ui.label(self.trans.click_to_copy());
                                                                                 });
                                                                             }
                                                                         });
@@ -1016,7 +1053,7 @@ impl Main<'_> {
                                                                     }
                                                                 }
                                                             }
-                                                            if ui.add_enabled(result.page_index != 0, Button::new("<-")).clicked() {
+                                                            if ui.add_enabled(result.page_index != 0, Button::new("<")).clicked() {
                                                                 if let Some(status_clone) = sql_query_status_clone.clone() {
                                                                     let mut status = status_clone.lock().unwrap();
                                                                     if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
@@ -1031,7 +1068,7 @@ impl Main<'_> {
 
                                                             ui.separator();
 
-                                                            if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new("->")).clicked() {
+                                                            if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new(">")).clicked() {
                                                                 if let Some(status_clone) = sql_query_status_clone.clone() {
                                                                     let mut status = status_clone.lock().unwrap();
                                                                     if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
@@ -1050,7 +1087,7 @@ impl Main<'_> {
                                                         });
                                                     }
                                                 } else {
-                                                    ui.heading("No data returned");
+                                                    ui.heading(self.trans.no_data_returned());
                                                 }
                                         }
                                         structs::SQLQueryExecutionStatusType::Error(e) => {
@@ -1063,7 +1100,7 @@ impl Main<'_> {
 
                                             ui.horizontal(|ui| {
                                                 ui.add(warning_icon);
-                                                ui.label("Error!");
+                                                ui.label(self.trans.error());
                                             });
 
                                             ui.heading(e);
@@ -1106,13 +1143,13 @@ impl App for Main<'_> {
                 ui.set_width(360.0);
 
                 if self.login_window.clear_storage {
-                    widgets::modal_label(ui, "Clear storage");
+                    widgets::modal_label(ui, self.trans.clear_storage());
 
-                    ui.label(RichText::new("Do you want to clear storage? This action is irreversible."));
+                    ui.label(RichText::new(self.trans.clear_storage_confirmation()));
 
                     ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                         ui.horizontal(|ui| {
-                            if ui.button("Yes").clicked() {
+                            if ui.button(self.trans.yes()).clicked() {
                                 self.login_window = structs::LoginWindow::default();
 
                                 self.config.servers = Vec::new();
@@ -1120,7 +1157,7 @@ impl App for Main<'_> {
 
                                 self.save_config();
                             }
-                            if ui.button("No").clicked() {
+                            if ui.button(self.trans.no()).clicked() {
                                 self.login_window.clear_storage = false;
                             }
                         });
@@ -1129,7 +1166,7 @@ impl App for Main<'_> {
                     return;
                 }
 
-                widgets::modal_label(ui, "Login");
+                widgets::modal_label(ui, self.trans.login());
 
                 if let Some(error) = &self.login_window.error {
                     ui.label(RichText::new(error).color(Color32::RED));
@@ -1137,9 +1174,9 @@ impl App for Main<'_> {
 
                 ui.horizontal(|ui| {
                     if self.config.password_hash.is_some() {
-                        ui.label("Enter encryption password:");
+                        ui.label(self.trans.enter_encryption_password());
                     } else {
-                        ui.label("Create encryption password:");
+                        ui.label(self.trans.create_encryption_password());
                     }
 
                     TextEdit::singleline(&mut self.login_window.password).background_color(
@@ -1154,11 +1191,11 @@ impl App for Main<'_> {
                     ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
                         ui.horizontal(|ui| {
                             if !self.config.servers.is_empty() {
-                                if ui.button(RichText::new("Clear storage").color(Color32::RED)).clicked() {
+                                if ui.button(RichText::new(self.trans.clear_storage()).color(Color32::RED)).clicked() {
                                     self.login_window.clear_storage = true;
                                 }
                             }
-                            if ui.button("Login").clicked() || (ui.input(|i| i.key_pressed(Key::Enter))) {
+                            if ui.button(self.trans.login()).clicked() || (ui.input(|i| i.key_pressed(Key::Enter))) {
                                 let password = self.login_window.password.clone();
 
                                 self.login_window.error = None;
@@ -1168,7 +1205,7 @@ impl App for Main<'_> {
 
                                 if self.config.password_hash.is_some() {
                                     if utils::create_checksum(&password) != self.config.password_hash.clone().unwrap() {
-                                        self.login_window.error = Some("Incorrect password: hash mismatch".to_string());
+                                        self.login_window.error = Some(self.trans.incorrect_password_hash_mismatch());
                                     }
                                 }
 
@@ -1193,7 +1230,7 @@ impl App for Main<'_> {
         }
 
         widgets::left_panel(ctx, |ui| {
-            CollapsingHeader::new("Servers")
+            CollapsingHeader::new(self.trans.servers())
                 .default_open(true)
                 .show(ui, |ui| {
                     let server_indices: Vec<usize> = (0..self.config.servers.len()).collect();
@@ -1226,7 +1263,7 @@ impl App for Main<'_> {
                                         server.alias, server.ip, server.port
                                     ))
                                     .show(ui, |ui| {
-                                        CollapsingHeader::new("Databases").show(ui, |ui| {
+                                        CollapsingHeader::new(self.trans.databases()).show(ui, |ui| {
                                             let db_state = {
                                                 let dbs = self.db_manager.dbs.lock().expect("Failed to lock dbs mutex");
                                                 dbs.get(&server_id).cloned()
@@ -1237,22 +1274,22 @@ impl App for Main<'_> {
                                                     let server = &self.config.servers[idx];
 
                                                     CollapsingHeader::new(&database.name).id_salt(format!("db_{}_{}_{}", server.ip, server.port, database.name)).show(ui, |ui| {
-                                                        CollapsingHeader::new("Tables").id_salt(format!("tables_{}", database.name)).show(ui, |ui| {
+                                                        CollapsingHeader::new(self.trans.tables()).id_salt(format!("tables_{}", database.name)).show(ui, |ui| {
                                                             for table in &database.tables {
                                                                 CollapsingHeader::new(table).id_salt(format!("table_{}_{}", database.name, table)).show(ui, |ui| {
-                                                                    CollapsingHeader::new("Scripts").id_salt(format!("scripts_{}_{}_{}", server.ip, database.name, table)).show(ui, |ui| {
+                                                                    CollapsingHeader::new(self.trans.scripts()).id_salt(format!("scripts_{}_{}_{}", server.ip, database.name, table)).show(ui, |ui| {
                                                                         widgets::script_preset(ui, pages, &database, server, "Insert", scripts::INSERT.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Update", scripts::UPDATE.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Delete", scripts::DELETE.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Select", scripts::SELECT.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Select 100", scripts::SELECT_100.replace("{table_name}", table));
-                                                                        widgets::script_preset(ui, pages, &database, server, "Get columns", scripts::GET_TABLE_COLUMNS.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, self.trans.get_columns(), scripts::GET_TABLE_COLUMNS.replace("{table_name}", table));
                                                                     });
                                                                 });
                                                             }
                                                         });
 
-                                                        CollapsingHeader::new("Scripts").id_salt(format!("db_scripts_{}", database.name)).show(ui, |ui| {
+                                                        CollapsingHeader::new(self.trans.scripts()).id_salt(format!("db_scripts_{}", database.name)).show(ui, |ui| {
                                                             widgets::script_preset(ui, pages, &database, server, "Create table", scripts::CREATE_TABLE);
                                                             widgets::script_preset(ui, pages, &database, server, "Create index", scripts::CREATE_INDEX);
                                                             widgets::script_preset(ui, pages, &database, server, "Drop table", scripts::DROP_TABLE);
@@ -1306,11 +1343,11 @@ impl App for Main<'_> {
 
                                 if ui.memory(|mem| mem.is_popup_open(id)) {
                                     server_button.context_menu(|ui| {
-                                        if ui.button("Delete").clicked() {
+                                        if ui.button(self.trans.delete()).clicked() {
                                             ui.memory_mut(|mem| mem.close_popup());
                                             self.delete_server_window.show = true;
                                             self.delete_server_window.server = Some(server.clone());
-                                        } else if ui.button("Edit").clicked() {
+                                        } else if ui.button(self.trans.edit()).clicked() {
                                             self.edit_server_window.show = true;
                                             self.edit_server_window.server = Some(server.clone());
                                             self.edit_server_window.original_server = Some(server.clone());
@@ -1321,7 +1358,7 @@ impl App for Main<'_> {
                                             self.edit_server_window.user_field = server.user.clone();
                                             self.edit_server_window.password_field = server.password.clone();
                                             self.edit_server_window.service_database_field = server.service_database.clone();
-                                        } else if ui.button("Reload").clicked() {
+                                        } else if ui.button(self.trans.reload()).clicked() {
                                             let dbs = self.db_manager.dbs.clone();
                                             let config = self.config.clone();
                                             let idx = idx.clone();
@@ -1338,7 +1375,7 @@ impl App for Main<'_> {
                         });
                     }
 
-                    if ui.button("Add server").clicked() {
+                    if ui.button(self.trans.add_server()).clicked() {
                         self.add_server_window.show = true;
                     }
                 });
@@ -1348,7 +1385,7 @@ impl App for Main<'_> {
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.add_space(4.0);
 
-                    if ui.button("Settings").clicked() {
+                    if ui.button(self.trans.settings()).clicked() {
                         self.settings_window.show = true;
                     }
 
