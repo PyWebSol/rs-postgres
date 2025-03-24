@@ -397,7 +397,7 @@ impl Main<'_> {
 
         if self.edit_server_window.show {
             Modal::new(Id::new("edit_server_modal")).show(ctx, |ui| {
-                widgets::modal_label(ui, "Add server");
+                widgets::modal_label(ui, "Edit server");
 
                     Grid::new("server_form")
                         .num_columns(2)
