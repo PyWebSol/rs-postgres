@@ -28,6 +28,6 @@ pub const SELECT_100: &str = r#"SELECT *
 FROM {table_name}
 LIMIT 100"#;
 
-pub const GET_TABLE_COLUMNS: &str = r#"SELECT column_name
+pub const GET_TABLE_COLUMNS: &str = r#"SELECT column_name as name, data_type as type
 FROM information_schema.columns
 WHERE table_name = '{table_name}'"#;
