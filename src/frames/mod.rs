@@ -8,7 +8,7 @@ use eframe::{egui, App};
 use egui::{
     RichText, Modal, CentralPanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, Grid, ScrollArea, Label,
-    Key, TopBottomPanel,
+    Key,
 };
 use egui_extras::{TableBuilder, Column};
 use egui_file_dialog::FileDialog;
@@ -1134,6 +1134,7 @@ impl App for Main<'_> {
                                                                         widgets::script_preset(ui, pages, &database, server, "Delete", scripts::DELETE.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Select", scripts::SELECT.replace("{table_name}", table));
                                                                         widgets::script_preset(ui, pages, &database, server, "Select 100", scripts::SELECT_100.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, "Get columns", scripts::GET_TABLE_COLUMNS.replace("{table_name}", table));
                                                                     });
                                                                 });
                                                             }
