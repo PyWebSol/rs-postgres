@@ -894,10 +894,11 @@ impl Main<'_> {
                                             };
 
                                             let available_height = ui.available_height() - if pages_count > 1 {
-                                                80.0
+                                                64.0
                                             } else {
                                                 0.0
                                             };
+                                            let available_width = ui.available_width();
 
                                             ui.horizontal(|ui| {
                                                 ui.label("Success");
@@ -910,52 +911,53 @@ impl Main<'_> {
                                             ui.separator();
 
                                             if !data.is_empty() {
-                                                TableBuilder::new(ui)
-                                                    .striped(true)
-                                                    .auto_shrink([false, false])
-                                                    .max_scroll_height(available_height)
-                                                    .columns(Column::remainder().resizable(true), data.keys().len())
-                                                    .header(16.0, |mut header| {
-                                                        for column_name in data.keys() {
-                                                            header.col(|ui| {
-                                                                ui.add(
-                                                                    Label::new(RichText::new(column_name).strong().monospace())
-                                                                        .wrap_mode(egui::TextWrapMode::Extend)
-                                                                );
-                                                            });
-                                                        }
-                                                    })
-                                                    .body(|mut body| {
-                                                        for i in 0..(end_index - start_index) {
-                                                            body.row(16.0, |mut row| {
-                                                                let values = data.values()
-                                                                    .map(|v| v[start_index..end_index]
-                                                                        .iter()
-                                                                        .map(|x| x.to_string())
-                                                                        .collect::<Vec<String>>())
-                                                                    .collect::<Vec<Vec<String>>>();
+                                                ScrollArea::horizontal().auto_shrink([false, false]).max_width(available_width).max_height(available_height).show(ui, |ui| {
+                                                    TableBuilder::new(ui)
+                                                        .striped(true)
+                                                        .auto_shrink([false, false])
+                                                        .columns(Column::remainder().resizable(true), data.keys().len())
+                                                        .header(16.0, |mut header| {
+                                                            for column_name in data.keys() {
+                                                                header.col(|ui| {
+                                                                    ui.add(
+                                                                        Label::new(RichText::new(column_name).strong().monospace())
+                                                                            .wrap_mode(egui::TextWrapMode::Extend)
+                                                                    );
+                                                                });
+                                                            }
+                                                        })
+                                                        .body(|mut body| {
+                                                            for i in 0..(end_index - start_index) {
+                                                                body.row(16.0, |mut row| {
+                                                                    let values = data.values()
+                                                                        .map(|v| v[start_index..end_index]
+                                                                            .iter()
+                                                                            .map(|x| x.to_string())
+                                                                            .collect::<Vec<String>>())
+                                                                        .collect::<Vec<Vec<String>>>();
 
-                                                                for value in values {
-                                                                    row.col(|ui| {
-                                                                        let content = value[i].to_string();
-                                                                        let label = content.clone().replace("\n", " ");
+                                                                    for value in values {
+                                                                        row.col(|ui| {
+                                                                            let content = value[i].to_string();
+                                                                            let label = content.clone().replace("\n", " ");
 
-                                                                        let label = Label::new(label)
-                                                                            .wrap_mode(egui::TextWrapMode::Truncate);
-                                                                        let label_widget = ui.add(label);
+                                                                            let label = Label::new(label)
+                                                                                .wrap_mode(egui::TextWrapMode::Truncate);
+                                                                            let label_widget = ui.add(label);
 
-                                                                        if label_widget.clicked() {
-                                                                            self.sql_response_copy_window.show = true;
-                                                                            self.sql_response_copy_window.response = Some(content);
-                                                                        } else if label_widget.hovered() {
-                                                                            egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("copy_tooltip"), |ui| {
-                                                                                ui.label("Click to copy");
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                }
-                                                            });
-                                                        }
+                                                                            if label_widget.clicked() {
+                                                                                self.sql_response_copy_window.show = true;
+                                                                                self.sql_response_copy_window.response = Some(content);
+                                                                            } else if label_widget.hovered() {
+                                                                                egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("copy_tooltip"), |ui| {
+                                                                                    ui.label("Click to copy");
+                                                                                });
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                            }
+                                                        });
                                                     });
 
                                                     if pages_count > 1 {
