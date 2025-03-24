@@ -272,20 +272,20 @@ impl Main<'_> {
                 match databases {
                     Ok(databases) => {
                         let mut loaded_databases: Vec<structs::LoadedDatabase> = Vec::new();
-                        
+
                         for db_name in databases {
                             let db_url = format!(
                                 "postgres://{}:{}@{}:{}/{}",
                                 server.user, server.password, server.ip, server.port, db_name
                             );
-                            
+
                             match database::Database::new(&db_url).await {
                                 Ok(db_connection) => {
                                     let tables = match db_connection.get_tables().await {
                                         Ok(tables) => tables,
                                         Err(_) => Vec::new()
                                     };
-                                    
+
                                     loaded_databases.push(structs::LoadedDatabase {
                                         name: db_name,
                                         database: db_connection,
@@ -301,7 +301,7 @@ impl Main<'_> {
                                 }
                             }
                         }
-                        
+
                         let mut dbs = dbs.lock().unwrap();
                         dbs.insert(id, structs::DbState::Loaded(loaded_databases));
                     }
