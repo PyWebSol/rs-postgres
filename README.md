@@ -69,7 +69,7 @@ cargo run -- --debug
 - [ ] Creating new databases and tables in the connection tree
 - [ ] Connection health monitoring
 - [x] Query execution time tracking
-- [ ] Query results pagination
+- [x] Query results pagination
 - [ ] Query results export to CSV and JSON
 - [x] Editing server connection details
 - [x] Syntax highlighting

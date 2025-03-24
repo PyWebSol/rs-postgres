@@ -8,7 +8,7 @@ use eframe::{egui, App};
 use egui::{
     RichText, Modal, CentralPanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, Grid, ScrollArea, Label,
-    Key,
+    Key, TopBottomPanel,
 };
 use egui_extras::{TableBuilder, Column};
 use egui_file_dialog::FileDialog;
@@ -194,6 +194,7 @@ impl Main<'_> {
             Ok(result) => structs::SQLQueryExecutionStatusType::Success(structs::SQLQueryExecutionSuccess {
                 result,
                 execution_time: execution_time as u64,
+                page_index: 0,
             }),
             Err(e) => structs::SQLQueryExecutionStatusType::Error(e.to_string()),
         };
@@ -824,7 +825,19 @@ impl Main<'_> {
                                             };
                                             let execution_time = result.execution_time;
 
-                                            let available_height = ui.available_height();
+                                            let pages_count = (rows_count as f32 / ROWS_PER_PAGE as f32).ceil() as u16;
+                                            let start_index = (result.page_index * ROWS_PER_PAGE as u32) as usize;
+                                            let end_index = if start_index + ROWS_PER_PAGE as usize > data[data.keys().next().unwrap()].len() {
+                                                data[data.keys().next().unwrap()].len()
+                                            } else {
+                                                start_index + ROWS_PER_PAGE as usize
+                                            };
+
+                                            let available_height = ui.available_height() - if pages_count > 1 {
+                                                80.0
+                                            } else {
+                                                0.0
+                                            };
 
                                             ui.horizontal(|ui| {
                                                 ui.label("Success");
@@ -853,9 +866,16 @@ impl Main<'_> {
                                                         }
                                                     })
                                                     .body(|mut body| {
-                                                        for i in 0..data[data.keys().next().unwrap()].len() {
+                                                        for i in 0..(end_index - start_index) {
                                                             body.row(16.0, |mut row| {
-                                                                for value in data.values() {
+                                                                let values = data.values()
+                                                                    .map(|v| v[start_index..end_index]
+                                                                        .iter()
+                                                                        .map(|x| x.to_string())
+                                                                        .collect::<Vec<String>>())
+                                                                    .collect::<Vec<Vec<String>>>();
+
+                                                                for value in values {
                                                                     row.col(|ui| {
                                                                         let content = value[i].to_string();
                                                                         let label = content.clone().replace("\n", " ");
@@ -877,6 +897,54 @@ impl Main<'_> {
                                                             });
                                                         }
                                                     });
+
+                                                    if pages_count > 1 {
+                                                        let sql_query_status_clone = sqlquery_page.sql_query_execution_status.clone();
+
+                                                        ui.separator();
+
+                                                        ui.horizontal_centered(|ui| {
+                                                            if ui.add_enabled(result.page_index != 0, Button::new("<<<")).clicked() {
+                                                                if let Some(status_clone) = sql_query_status_clone.clone() {
+                                                                    let mut status = status_clone.lock().unwrap();
+                                                                    if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
+                                                                        success.page_index = 0;
+                                                                    }
+                                                                }
+                                                            }
+                                                            if ui.add_enabled(result.page_index != 0, Button::new("<-")).clicked() {
+                                                                if let Some(status_clone) = sql_query_status_clone.clone() {
+                                                                    let mut status = status_clone.lock().unwrap();
+                                                                    if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
+                                                                        success.page_index -= 1;
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            ui.separator();
+
+                                                            ui.label(format!("{}/{}; {}..{}", result.page_index + 1, pages_count, result.page_index * ROWS_PER_PAGE as u32, if result.page_index == pages_count as u32 - 1 { data[data.keys().next().unwrap()].len() } else { ((result.page_index + 1) * ROWS_PER_PAGE as u32) as usize }));
+
+                                                            ui.separator();
+
+                                                            if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new("->")).clicked() {
+                                                                if let Some(status_clone) = sql_query_status_clone.clone() {
+                                                                    let mut status = status_clone.lock().unwrap();
+                                                                    if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
+                                                                        success.page_index += 1;
+                                                                    }
+                                                                }
+                                                            }
+                                                            if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new(">>>")).clicked() {
+                                                                if let Some(status_clone) = sql_query_status_clone.clone() {
+                                                                    let mut status = status_clone.lock().unwrap();
+                                                                    if let structs::SQLQueryExecutionStatusType::Success(success) = &mut *status {
+                                                                        success.page_index = pages_count as u32 - 1;
+                                                                    }
+                                                                }
+                                                            }
+                                                        });
+                                                    }
                                                 } else {
                                                     ui.heading("No data returned");
                                                 }

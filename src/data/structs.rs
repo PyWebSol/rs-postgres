@@ -110,6 +110,7 @@ pub enum DbState {
 pub struct SQLQueryExecutionSuccess {
     pub result: IndexMap<String, Vec<ValueType>>,
     pub execution_time: u64,
+    pub page_index: u32,
 }
 
 #[derive(Clone, Debug)]
