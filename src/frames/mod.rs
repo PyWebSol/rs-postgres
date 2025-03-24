@@ -126,7 +126,7 @@ impl Main<'_> {
 
         std_fs::write(
             &config_path,
-            serde_json::to_string(&config).unwrap(),
+            serde_json::to_string_pretty(&config).unwrap(),
         ).unwrap();
     }
 
