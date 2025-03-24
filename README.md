@@ -1,7 +1,9 @@
 # Rs-Postgres 🐘🦀
 
-[![Rust](https://img.shields.io/badge/Rust-1.72+-blue?logo=rust)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.72+-orange?logo=rust)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+![Header](assets/other/git-header.png)
 
 Modern PostgreSQL client with native GUI, built in Rust using [egui](https://www.egui.rs/). Designed for developers who want a lightweight and fast database management tool.
 
