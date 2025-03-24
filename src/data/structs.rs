@@ -159,7 +159,6 @@ impl ValueType {
 
 #[derive(Clone)]
 pub struct SQLQueryPage {
-    pub name: String,
     pub database: crate::database::Database,
     pub code: String,
     pub code_file_path: Option<String>,
@@ -176,6 +175,7 @@ pub enum PageType {
 pub struct Page {
     pub title: String,
     pub page_type: PageType,
+    pub scrolled: bool,
 }
 
 impl Default for Page {
@@ -183,6 +183,7 @@ impl Default for Page {
         Self {
             title: String::from("Welcome"),
             page_type: PageType::Welcome,
+            scrolled: false,
         }
     }
 }

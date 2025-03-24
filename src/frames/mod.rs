@@ -584,7 +584,7 @@ impl Main<'_> {
 
     fn update_pages(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         widgets::top_panel(ctx, |ui| {
-            for (idx, page) in self.pages.pages.iter().enumerate() {
+            for (idx, page) in self.pages.pages.iter_mut().enumerate() {
                 let mut button_title = page.title.clone();
                 if button_title.chars().count() > 16 {
                     button_title = format!("{}...", &button_title.chars().take(16).collect::<String>());
@@ -603,6 +603,11 @@ impl Main<'_> {
                     egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), btn_id, |ui| {
                         ui.label(page.title.clone());
                     });
+                }
+
+                if !page.scrolled {
+                    btn.scroll_to_me(Some(Align::Center));
+                    page.scrolled = true;
                 }
 
                 if ui.memory(|mem| mem.is_popup_open(btn_id)) {
@@ -695,7 +700,6 @@ impl Main<'_> {
                         structs::PageType::SQLQuery(sqlquery_page) => {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.heading(format!("SQL query tool for database {}", sqlquery_page.name));
                                     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                                         let code_is_empty = sqlquery_page.code.is_empty();
 
