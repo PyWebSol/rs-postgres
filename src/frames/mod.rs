@@ -94,8 +94,10 @@ impl Main<'_> {
             ).unwrap();
         }
 
+        let mut write_config = false;
+
         let config_file = std_fs::read_to_string(&config_path).unwrap();
-        let config = match serde_json::from_str::<structs::Config>(&config_file) {
+        let mut config = match serde_json::from_str::<structs::Config>(&config_file) {
             Ok(config) => config,
             Err(_) => {
                 let mut default_config = structs::Config::default();
@@ -106,13 +108,22 @@ impl Main<'_> {
                         default_config = merged;
                     }
                 }
-                std_fs::write(
-                    &config_path,
-                    serde_json::to_string_pretty(&default_config).unwrap(),
-                ).unwrap();
+                write_config = true;
                 default_config
             },
         };
+
+        if !config.settings.theme.is_inited() {
+            config.settings.theme = structs::Theme::Dark;
+            write_config = true;
+        }
+
+        if write_config {
+            std_fs::write(
+                &config_path,
+                serde_json::to_string_pretty(&config).unwrap(),
+            ).unwrap();
+        }
 
         self.config = config;
     }
@@ -313,12 +324,14 @@ impl Main<'_> {
                         .spacing([40.0, 4.0])
                         .striped(true)
                         .show(ui, |ui| {
+                            let input_color = self.config.settings.theme.text_input_color();
+
                             ui.label("Name");
-                            ui.add(TextEdit::singleline(&mut self.add_server_window.name_field));
+                            ui.add(TextEdit::singleline(&mut self.add_server_window.name_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Server address");
-                            ui.add(TextEdit::singleline(&mut self.add_server_window.ip_field));
+                            ui.add(TextEdit::singleline(&mut self.add_server_window.ip_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Port");
@@ -327,19 +340,19 @@ impl Main<'_> {
                             if is_error {
                                 field = field.text_color(Color32::from_rgb(255, 0, 0));
                             }
-                            ui.add(field);
+                            ui.add(field.background_color(input_color));
                             ui.end_row();
 
                             ui.label("User");
-                            ui.add(TextEdit::singleline(&mut self.add_server_window.user_field));
+                            ui.add(TextEdit::singleline(&mut self.add_server_window.user_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Password");
-                            ui.add(TextEdit::singleline(&mut self.add_server_window.password_field));
+                            ui.add(TextEdit::singleline(&mut self.add_server_window.password_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Service DB");
-                            ui.add(TextEdit::singleline(&mut self.add_server_window.service_database_field));
+                            ui.add(TextEdit::singleline(&mut self.add_server_window.service_database_field).background_color(input_color));
                             ui.end_row();
                         });
 
@@ -457,12 +470,14 @@ impl Main<'_> {
                         .spacing([40.0, 4.0])
                         .striped(true)
                         .show(ui, |ui| {
+                            let input_color = self.config.settings.theme.text_input_color();
+
                             ui.label("Name");
-                            ui.add(TextEdit::singleline(&mut self.edit_server_window.name_field));
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.name_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Server address");
-                            ui.add(TextEdit::singleline(&mut self.edit_server_window.ip_field));
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.ip_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Port");
@@ -471,19 +486,19 @@ impl Main<'_> {
                             if is_error {
                                 field = field.text_color(Color32::from_rgb(255, 0, 0));
                             }
-                            ui.add(field);
+                            ui.add(field.background_color(input_color));
                             ui.end_row();
 
                             ui.label("User");
-                            ui.add(TextEdit::singleline(&mut self.edit_server_window.user_field));
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.user_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Password");
-                            ui.add(TextEdit::singleline(&mut self.edit_server_window.password_field));
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.password_field).background_color(input_color));
                             ui.end_row();
 
                             ui.label("Service DB");
-                            ui.add(TextEdit::singleline(&mut self.edit_server_window.service_database_field));
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.service_database_field).background_color(input_color));
                             ui.end_row();
                         });
 
@@ -603,8 +618,11 @@ impl Main<'_> {
         }
 
         if self.settings_window.show {
-            if self.settings_window.scale_factor < 1.0 {
+            if self.settings_window.scale_factor < 1.0 || self.settings_window.scale_factor > 1.5 {
                 self.settings_window.scale_factor = self.config.settings.scale_factor;
+            }
+            if !self.settings_window.theme.is_inited() {
+                self.settings_window.theme = self.config.settings.theme.clone();
             }
 
             Modal::new(Id::new("settings_modal")).show(ctx, |ui| {
@@ -618,6 +636,24 @@ impl Main<'_> {
                             ui.label("Scale factor");
                             ui.add(Slider::new(&mut self.settings_window.scale_factor, 1.0..=1.5));
                             ui.end_row();
+
+                            ui.with_layout(Layout::top_down(Align::LEFT), |ui| {
+                                ui.label("Theme");
+                            });
+                            let theme_name = match self.settings_window.theme {
+                                structs::Theme::Light => "Light".to_string(),
+                                structs::Theme::Dark => "Dark".to_string(),
+                                structs::Theme::NotInited => "".to_string(),
+                            };
+                            CollapsingHeader::new(theme_name).show(ui, |ui| {
+                                if ui.button("Dark").clicked() {
+                                    self.settings_window.theme = structs::Theme::Dark;
+                                }
+                                if ui.button("Light").clicked() {
+                                    self.settings_window.theme = structs::Theme::Light;
+                                }
+                            });
+                            ui.end_row();
                         });
 
                 ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
@@ -626,8 +662,11 @@ impl Main<'_> {
                     ui.horizontal(|ui| {
                         if ui.button("Save").clicked() {
                             self.config.settings.scale_factor = self.settings_window.scale_factor;
-                            self.save_config();
+                            self.config.settings.theme = self.settings_window.theme.clone();
+
                             self.settings_window = structs::SettingsWindow::default();
+
+                            self.save_config();
                         }
                         if ui.button("Close").clicked() {
                             self.settings_window = structs::SettingsWindow::default();
@@ -824,7 +863,9 @@ impl Main<'_> {
                                 if let Some(code_file_path) = &sqlquery_page.code_file_path {
                                     ui.horizontal(|ui| {
                                         ui.label("File: ");
-                                        ui.label(RichText::new(code_file_path).code().background_color(Color32::DARK_GRAY));
+                                        ui.label(RichText::new(code_file_path).code().background_color(
+                                            self.config.settings.theme.text_input_color()
+                                        ));
                                     });
                                 }
 
@@ -848,7 +889,7 @@ impl Main<'_> {
                                         .code_editor()
                                         .desired_width(f32::INFINITY)
                                         .desired_rows(10)
-                                        .background_color(Color32::from_hex("#242424").unwrap())
+                                        .background_color(self.config.settings.theme.text_input_color())
                                         .hint_text("SELECT * FROM ...")
                                         .layouter(&mut layouter),
                                 );
@@ -1049,7 +1090,7 @@ impl Main<'_> {
 
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.set_theme(egui::Theme::Dark);
+        ctx.set_theme(self.config.settings.theme.to_egui());
         ctx.set_zoom_factor(self.config.settings.scale_factor);
 
         if self.login_window.show {
@@ -1095,7 +1136,9 @@ impl App for Main<'_> {
                         ui.label("Create encryption password:");
                     }
 
-                    TextEdit::singleline(&mut self.login_window.password).password(true).show(ui);
+                    TextEdit::singleline(&mut self.login_window.password).background_color(
+                        self.config.settings.theme.text_input_color()
+                    ).password(true).show(ui);
                 });
 
                 ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {

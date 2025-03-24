@@ -4,6 +4,8 @@ use indexmap::IndexMap;
 
 use std::sync::{Arc, Mutex};
 
+use egui::{Color32, Theme as EguiTheme};
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Config {
     pub servers: Vec<Server>,
@@ -24,11 +26,44 @@ pub struct Server {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Settings {
     pub scale_factor: f32,
+    pub theme: Theme,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Theme {
+    Light,
+    Dark,
+    NotInited,
+}
+
+impl Theme {
+    pub fn to_egui(&self) -> egui::Theme {
+        match self {
+            Theme::Light => EguiTheme::Light,
+            Theme::Dark => EguiTheme::Dark,
+            Theme::NotInited => EguiTheme::Light,
+        }
+    }
+
+    pub fn is_inited(&self) -> bool {
+        match self {
+            Theme::NotInited => false,
+            _ => true,
+        }
+    }
+
+    pub fn text_input_color(&self) -> Color32 {
+        match self {
+            Theme::Light => Color32::LIGHT_GRAY,
+            Theme::Dark => Color32::from_hex("#242424").unwrap(),
+            Theme::NotInited => Color32::BLACK,
+        }
+    }
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { scale_factor: 1.125 }
+        Self { scale_factor: 1.125, theme: Theme::NotInited }
     }
 }
 
@@ -81,10 +116,21 @@ pub struct SQLResponseCopyWindow {
     pub response: Option<String>,
 }
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct SettingsWindow {
     pub show: bool,
     pub scale_factor: f32,
+    pub theme: Theme,
+}
+
+impl Default for SettingsWindow {
+    fn default() -> Self {
+        Self {
+            show: false,
+            scale_factor: 0.0,
+            theme: Theme::NotInited,
+        }
+    }
 }
 
 pub struct LoginWindow {
