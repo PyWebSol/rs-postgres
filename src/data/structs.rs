@@ -96,6 +96,7 @@ pub struct Icons<'a> {
 pub struct LoadedDatabase {
     pub name: String,
     pub database: crate::database::Database,
+    pub tables: Vec<String>,
 }
 
 #[derive(Clone)]

@@ -74,7 +74,7 @@ cargo run -- --debug
 - [x] Editing server connection details
 - [x] Syntax highlighting
 - [ ] Translations
-- [ ] SQL query operations presets for tables
+- [x] SQL query operations presets for tables
 
 # Support 🤗
 If you have any questions, do not hesitate to write to me: https://t.me/bot_token

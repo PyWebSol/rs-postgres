@@ -27,6 +27,20 @@ impl Database {
         Err(String::from("Unknown error"))
     }
 
+    pub async fn get_tables(&self) -> Result<Vec<String>, String> {
+        let rows = sqlx::query("SELECT tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') AND schemaname NOT LIKE 'pg_%'")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let tables = rows
+            .into_iter()
+            .map(|row| row.try_get("tablename").map_err(|e| e.to_string()))
+            .collect::<Result<Vec<String>, String>>()?;
+
+        Ok(tables)
+    }
+
     pub async fn get_databases(&self) -> Result<Vec<String>, String> {
         let rows = sqlx::query("SELECT datname FROM pg_database")
             .fetch_all(&self.pool)

@@ -151,12 +151,19 @@ impl Main<'_> {
                         );
                         let database = database::Database::new(&database_url).await;
                         if let Ok(database) = database {
-                            databases.push(
-                                structs::LoadedDatabase {
-                                    name: name.clone(),
-                                    database,
-                                }
-                            );
+                            let tables = database.get_tables().await;
+
+                            if let Ok(tables) = tables {
+                                databases.push(
+                                    structs::LoadedDatabase {
+                                        name: name.clone(),
+                                        database,
+                                        tables,
+                                    }
+                                );
+                            } else if let Err(e) = tables {
+                                error!("Error loading tables for database {}: {}", name, e);
+                            }
                         } else if let Err(e) = database {
                             error!("Error loading database for server {} ({}): {}", server.ip, name, e);
                         }
@@ -224,13 +231,37 @@ impl Main<'_> {
                 let databases = database.get_databases().await;
                 match databases {
                     Ok(databases) => {
-                        let loaded_databases: Vec<structs::LoadedDatabase> = databases
-                            .into_iter()
-                            .map(|name| structs::LoadedDatabase {
-                                name,
-                                database: database.clone(),
-                            })
-                            .collect();
+                        let mut loaded_databases: Vec<structs::LoadedDatabase> = Vec::new();
+                        
+                        for db_name in databases {
+                            let db_url = format!(
+                                "postgres://{}:{}@{}:{}/{}",
+                                server.user, server.password, server.ip, server.port, db_name
+                            );
+                            
+                            match database::Database::new(&db_url).await {
+                                Ok(db_connection) => {
+                                    let tables = match db_connection.get_tables().await {
+                                        Ok(tables) => tables,
+                                        Err(_) => Vec::new()
+                                    };
+                                    
+                                    loaded_databases.push(structs::LoadedDatabase {
+                                        name: db_name,
+                                        database: db_connection,
+                                        tables,
+                                    });
+                                },
+                                Err(_) => {
+                                    loaded_databases.push(structs::LoadedDatabase {
+                                        name: db_name,
+                                        database: database.clone(),
+                                        tables: Vec::new(),
+                                    });
+                                }
+                            }
+                        }
+                        
                         let mut dbs = dbs.lock().unwrap();
                         dbs.insert(id, structs::DbState::Loaded(loaded_databases));
                     }
@@ -625,7 +656,7 @@ impl Main<'_> {
                                     ui.label("1. Click 'Add server' in left panel");
                                     ui.label("2. Enter server connection parameters");
                                     ui.label("3. Select database in connection tree");
-                                    ui.label("4. Start working with SQL queries");
+                                    ui.label("4. Start working with SQL queries by clicking 'SQL Query' button or choosing preset script");
                                 });
 
                                 ui.add_space(16.0);
@@ -1022,20 +1053,31 @@ impl App for Main<'_> {
                                             };
                                             if let Some(structs::DbState::Loaded(_db)) = db_state {
                                                 for database in _db {
-                                                    CollapsingHeader::new(&database.name).show(ui, |ui| {
-                                                        if ui.button("SQL Query").clicked() {
-                                                            self.pages.pages.push(structs::Page {
-                                                                title: String::from(format!("{} ({}:{})", database.name, server.ip, server.port)),
-                                                                page_type: structs::PageType::SQLQuery(structs::SQLQueryPage {
-                                                                    name: database.name.clone(),
-                                                                    database: database.database.clone(),
-                                                                    code: String::new(),
-                                                                    code_file_path: None,
-                                                                    sql_query_execution_status: None,
-                                                                }),
-                                                            });
-                                                            self.pages.current_page_index = (self.pages.pages.len() - 1) as u16;
-                                                        }
+                                                    let pages = &mut self.pages;
+                                                    let server = &self.config.servers[idx];
+
+                                                    CollapsingHeader::new(&database.name).id_salt(format!("db_{}_{}_{}", server.ip, server.port, database.name)).show(ui, |ui| {
+                                                        CollapsingHeader::new("Tables").id_salt(format!("tables_{}", database.name)).show(ui, |ui| {
+                                                            for table in &database.tables {
+                                                                CollapsingHeader::new(table).id_salt(format!("table_{}_{}", database.name, table)).show(ui, |ui| {
+                                                                    CollapsingHeader::new("Scripts").id_salt(format!("scripts_{}_{}_{}", server.ip, database.name, table)).show(ui, |ui| {
+                                                                        widgets::script_preset(ui, pages, &database, server, "Insert", scripts::INSERT.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, "Update", scripts::UPDATE.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, "Delete", scripts::DELETE.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, "Select", scripts::SELECT.replace("{table_name}", table));
+                                                                        widgets::script_preset(ui, pages, &database, server, "Select 100", scripts::SELECT_100.replace("{table_name}", table));
+                                                                    });
+                                                                });
+                                                            }
+                                                        });
+
+                                                        CollapsingHeader::new("Scripts").id_salt(format!("db_scripts_{}", database.name)).show(ui, |ui| {
+                                                            widgets::script_preset(ui, pages, &database, server, "Create table", scripts::CREATE_TABLE);
+                                                            widgets::script_preset(ui, pages, &database, server, "Create index", scripts::CREATE_INDEX);
+                                                            widgets::script_preset(ui, pages, &database, server, "Drop table", scripts::DROP_TABLE);
+                                                        });
+
+                                                        widgets::script_preset(ui, pages, &database, server, "SQL Query", String::new());
                                                     });
                                                 }
                                             }

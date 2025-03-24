@@ -1,6 +1,8 @@
 use egui::{
-    Context, ScrollArea, SidePanel, TopBottomPanel, Ui, RichText,
+    Context, ScrollArea, SidePanel, TopBottomPanel, Ui, RichText, Button,
 };
+
+use crate::data::structs;
 
 pub fn modal_label(ui: &mut Ui, title: impl Into<RichText>) {
     ui.vertical_centered(|ui| {
@@ -27,4 +29,23 @@ pub fn left_panel(ctx: &Context, content: impl FnOnce(&mut Ui) -> ()) {
             content(ui);
         });
     });
+}
+
+pub fn script_preset(ui: &mut Ui, pages: &mut structs::Pages, database: &structs::LoadedDatabase, server: &structs::Server, title: impl Into<RichText>, script: impl ToString) {
+    let button = ui.add(Button::new(title.into()));
+
+    if button.clicked() {
+        pages.pages.push(structs::Page {
+            title: String::from(format!("{} ({}:{})", database.name, server.ip, server.port)),
+            page_type: structs::PageType::SQLQuery(structs::SQLQueryPage {
+                name: database.name.clone(),
+                database: database.database.clone(),
+                code: script.to_string(),
+                code_file_path: None,
+                sql_query_execution_status: None,
+            }),
+        });
+
+        pages.current_page_index = (pages.pages.len() - 1) as u16;
+    }
 }
