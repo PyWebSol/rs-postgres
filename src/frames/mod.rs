@@ -104,12 +104,9 @@ impl Main<'_> {
             Ok(config) => config,
             Err(_) => {
                 let mut default_config = structs::Config::default();
-                if let Ok(partial_config) = serde_json::from_str::<serde_json::Value>(&config_file) {
-                    if let Ok(merged) = serde_json::from_value::<structs::Config>(
-                        serde_json::Value::Object(serde_merge::mmerge(&default_config, partial_config).unwrap())
-                    ) {
-                        default_config = merged;
-                    }
+                if let Ok(mut partial_config) = serde_json::from_str::<serde_json::Value>(&config_file) {
+                    Self::merge_defaults(&mut partial_config, &serde_json::to_value(&default_config).unwrap());
+                    default_config = serde_json::from_value(partial_config).unwrap_or(default_config);
                 }
                 write_config = true;
                 default_config
@@ -129,8 +126,22 @@ impl Main<'_> {
         }
 
         self.trans.language = config.settings.language.clone();
-
         self.config = config;
+    }
+
+    fn merge_defaults(current: &mut serde_json::Value, default: &serde_json::Value) {
+        match (current, default) {
+            (serde_json::Value::Object(ref mut current_map), serde_json::Value::Object(default_map)) => {
+                for (key, default_value) in default_map {
+                    if !current_map.contains_key(key) {
+                        current_map.insert(key.clone(), default_value.clone());
+                    } else {
+                        Self::merge_defaults(current_map.get_mut(key).unwrap(), default_value);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn save_config(&mut self) {
