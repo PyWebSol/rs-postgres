@@ -1057,14 +1057,16 @@ impl Main<'_> {
                                             ui.separator();
 
                                             let warning_icon = match self.config.settings.theme {
-                                                structs::Theme::Light => self.icons.warning_light.clone(),
-                                                _ => self.icons.warning_dark.clone(),
+                                                structs::Theme::Light => self.icons.warning_dark.clone(),
+                                                _ => self.icons.warning_light.clone(),
                                             };
-                                            if ui.add(warning_icon).hovered() {
-                                                egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("warning_tooltip"), |ui| {
-                                                    ui.label("Error");
-                                                });
-                                            }
+
+                                            ui.horizontal(|ui| {
+                                                ui.add(warning_icon);
+                                                ui.label("Error!");
+                                            });
+
+                                            ui.heading(e);
                                         }
                                     }
                                 }
