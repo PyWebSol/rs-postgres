@@ -262,7 +262,6 @@ impl Translator {
 • Connect to multiple PostgreSQL servers
 • Manage databases through GUI
 • Execute SQL queries with results view
-• Secure encryption of server credentials
 • Connect to multiple PostgreSQL servers
 • Manage databases through GUI"#.to_string(),
             Language::Russian => r#"• Легкий и быстрый
@@ -270,7 +269,6 @@ impl Translator {
 • Подключение к нескольким серверам PostgreSQL
 • Управление базами данных через графический интерфейс
 • Выполнение SQL-запросов с просмотром результатов
-• Безопасное шифрование учетных данных сервера
 • Подключение к нескольким серверам PostgreSQL
 • Управление базами данных через графический интерфейс"#.to_string(),
         }
