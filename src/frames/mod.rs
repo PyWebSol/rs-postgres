@@ -756,70 +756,70 @@ impl Main<'_> {
                         structs::PageType::SQLQuery(sqlquery_page) => {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                                        let code_is_empty = sqlquery_page.code.is_empty();
+                                    let code_is_empty = sqlquery_page.code.is_empty();
 
-                                        if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
-                                            let runtime = &self.runtime;
+                                    if ui.add_enabled(!code_is_empty, Button::new("Run (F5)")).clicked() || (ui.input(|i| i.key_pressed(Key::F5) && !code_is_empty)) {
+                                        let runtime = &self.runtime;
 
-                                            sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
+                                        sqlquery_page.sql_query_execution_status = Some(Arc::new(Mutex::new(structs::SQLQueryExecutionStatusType::Running)));
 
-                                            let database_clone = sqlquery_page.database.clone();
-                                            let code_clone = sqlquery_page.code.clone();
-                                            let sql_query_execution_status = sqlquery_page.sql_query_execution_status.clone();
+                                        let database_clone = sqlquery_page.database.clone();
+                                        let code_clone = sqlquery_page.code.clone();
+                                        let sql_query_execution_status = sqlquery_page.sql_query_execution_status.clone();
 
-                                            runtime.spawn(async move {
-                                                Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
-                                            });
+                                        runtime.spawn(async move {
+                                            Self::fetch_sql_query(database_clone, &code_clone, sql_query_execution_status).await;
+                                        });
+                                    }
+
+                                    if ui.add_enabled(!code_is_empty, Button::new("Save")).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::S)) && !code_is_empty) {
+                                        if sqlquery_page.code_file_path.is_some() {
+                                            Self::save_code(sqlquery_page);
+                                        } else {
+                                            self.select_file_dialog_action = Some(structs::SelectFileDialogAction::SaveFile);
+                                            self.select_file_dialog.save_file();
                                         }
+                                    }
+                                    if ui.button("Open").clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::O))) {
+                                        self.select_file_dialog_action = Some(structs::SelectFileDialogAction::OpenFile);
+                                        self.select_file_dialog.pick_file();
+                                    }
 
-                                        if ui.add_enabled(!code_is_empty, Button::new("Save")).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::S)) && !code_is_empty) {
-                                            if sqlquery_page.code_file_path.is_some() {
-                                                Self::save_code(sqlquery_page);
-                                            } else {
-                                                self.select_file_dialog_action = Some(structs::SelectFileDialogAction::SaveFile);
-                                                self.select_file_dialog.save_file();
-                                            }
-                                        }
-                                        if ui.button("Open").clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::O))) {
-                                            self.select_file_dialog_action = Some(structs::SelectFileDialogAction::OpenFile);
-                                            self.select_file_dialog.pick_file();
-                                        }
+                                    self.select_file_dialog.update(ctx);
 
-                                        self.select_file_dialog.update(ctx);
+                                    if let Some(action) = &self.select_file_dialog_action {
+                                        match action {
+                                            structs::SelectFileDialogAction::SaveFile => {
+                                                if let Some(code_file_path) = self.select_file_dialog.take_picked() {
+                                                    self.select_file_dialog_action = None;
 
-                                        if let Some(action) = &self.select_file_dialog_action {
-                                            match action {
-                                                structs::SelectFileDialogAction::SaveFile => {
-                                                    if let Some(code_file_path) = self.select_file_dialog.take_picked() {
-                                                        self.select_file_dialog_action = None;
+                                                    sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
 
-                                                        sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
+                                                    Self::save_code(sqlquery_page);
+                                                }
+                                            },
+                                            structs::SelectFileDialogAction::OpenFile => {
+                                                if let Some(code_file_path) = self.select_file_dialog.take_picked() {
+                                                    self.select_file_dialog_action = None;
 
-                                                        Self::save_code(sqlquery_page);
+                                                    sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
+
+                                                    match File::open(code_file_path) {
+                                                        Ok(mut file) => {
+                                                            let mut file_content = String::new();
+                                                            let _ = file.read_to_string(&mut file_content);
+
+                                                            sqlquery_page.code = file_content;
+                                                        },
+                                                        Err(_) => {},
                                                     }
-                                                },
-                                                structs::SelectFileDialogAction::OpenFile => {
-                                                    if let Some(code_file_path) = self.select_file_dialog.take_picked() {
-                                                        self.select_file_dialog_action = None;
-
-                                                        sqlquery_page.code_file_path = Some(code_file_path.to_string_lossy().to_string());
-
-                                                        match File::open(code_file_path) {
-                                                            Ok(mut file) => {
-                                                                let mut file_content = String::new();
-                                                                let _ = file.read_to_string(&mut file_content);
-
-                                                                sqlquery_page.code = file_content;
-                                                            },
-                                                            Err(_) => {},
-                                                        }
-                                                    }
-                                                },
-                                            }
+                                                }
+                                            },
                                         }
-                                    });
+                                    }
                                 });
+
+                                ui.add_space(16.0);
 
                                 if let Some(code_file_path) = &sqlquery_page.code_file_path {
                                     ui.horizontal(|ui| {
@@ -1289,6 +1289,8 @@ impl App for Main<'_> {
                         self.add_server_window.show = true;
                     }
                 });
+
+                ui.add_space(32.0);
 
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.add_space(4.0);
