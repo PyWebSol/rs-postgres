@@ -71,9 +71,10 @@ cargo run -- --debug
 - [x] Query execution time tracking
 - [ ] Query results pagination
 - [ ] Query results export to CSV and JSON
-- [ ] Editing server connection details
+- [x] Editing server connection details
 - [x] Syntax highlighting
 - [ ] Translations
+- [ ] SQL query operations presets for tables
 
 # Support 🤗
 If you have any questions, do not hesitate to write to me: https://t.me/bot_token
