@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 pub struct Config {
     pub servers: Vec<Server>,
     pub password_hash: Option<String>,
+    pub settings: Settings,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -18,6 +19,17 @@ pub struct Server {
     pub user: String,
     pub password: String,
     pub service_database: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Settings {
+    pub scale_factor: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { scale_factor: 1.125 }
+    }
 }
 
 pub struct AddServerWindow {

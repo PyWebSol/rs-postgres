@@ -21,6 +21,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use crate::utils::{encrypt_string, decrypt_string};
 use std::fs::File;
+use serde_json;
+use serde_merge;
 
 struct DbManager {
     dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
@@ -91,7 +93,24 @@ impl Main<'_> {
         }
 
         let config_file = std_fs::read_to_string(&config_path).unwrap();
-        let config: structs::Config = serde_json::from_str(&config_file).unwrap();
+        let config = match serde_json::from_str::<structs::Config>(&config_file) {
+            Ok(config) => config,
+            Err(_) => {
+                let mut default_config = structs::Config::default();
+                if let Ok(partial_config) = serde_json::from_str::<serde_json::Value>(&config_file) {
+                    if let Ok(merged) = serde_json::from_value::<structs::Config>(
+                        serde_json::Value::Object(serde_merge::mmerge(&default_config, partial_config).unwrap())
+                    ) {
+                        default_config = merged;
+                    }
+                }
+                std_fs::write(
+                    &config_path,
+                    serde_json::to_string_pretty(&default_config).unwrap(),
+                ).unwrap();
+                default_config
+            },
+        };
 
         self.config = config;
     }
@@ -992,6 +1011,7 @@ impl Main<'_> {
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_theme(egui::Theme::Dark);
+        ctx.set_zoom_factor(1.125);
 
         if self.login_window.show {
             CentralPanel::default().show(ctx, |_| {});

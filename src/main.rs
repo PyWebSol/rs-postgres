@@ -26,7 +26,7 @@ fn main() {
 
     let mut options = NativeOptions::default();
     options.viewport = egui::ViewportBuilder::default()
-        .with_min_inner_size([720.0, 480.0])
+        .with_min_inner_size([1024.0, 768.0])
         .with_icon(utils::load_icon());
 
     eframe::run_native(
