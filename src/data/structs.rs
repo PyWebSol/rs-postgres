@@ -81,6 +81,12 @@ pub struct SQLResponseCopyWindow {
     pub response: Option<String>,
 }
 
+#[derive(Default)]
+pub struct SettingsWindow {
+    pub show: bool,
+    pub scale_factor: f32,
+}
+
 pub struct LoginWindow {
     pub show: bool,
     pub clear_storage: bool,

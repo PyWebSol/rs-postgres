@@ -8,7 +8,7 @@ use eframe::{egui, App};
 use egui::{
     RichText, Modal, CentralPanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, Grid, ScrollArea, Label,
-    Key,
+    Key, Slider,
 };
 use egui_extras::{TableBuilder, Column};
 use egui_file_dialog::FileDialog;
@@ -35,6 +35,7 @@ pub struct Main<'a> {
     delete_server_window: structs::DeleteServerWindow,
     edit_server_window: structs::EditServerWindow,
     sql_response_copy_window: structs::SQLResponseCopyWindow,
+    settings_window: structs::SettingsWindow,
     login_window: structs::LoginWindow,
     icons: structs::Icons<'a>,
     runtime: tokio::runtime::Runtime,
@@ -62,6 +63,7 @@ impl Main<'_> {
             edit_server_window: structs::EditServerWindow::default(),
             sql_response_copy_window: structs::SQLResponseCopyWindow::default(),
             login_window: structs::LoginWindow::default(),
+            settings_window: structs::SettingsWindow::default(),
             icons: structs::Icons {
                 warning: egui::Image::new(icons::WARNING).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
                 rs_postgres: egui::Image::new(icons::RS_POSTGRES).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
@@ -599,6 +601,41 @@ impl Main<'_> {
                 });
             });
         }
+
+        if self.settings_window.show {
+            if self.settings_window.scale_factor < 1.0 {
+                self.settings_window.scale_factor = self.config.settings.scale_factor;
+            }
+
+            Modal::new(Id::new("settings_modal")).show(ctx, |ui| {
+                widgets::modal_label(ui, "Settings");
+
+                Grid::new("settings_form")
+                        .num_columns(2)
+                        .spacing([40.0, 4.0])
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("Scale factor");
+                            ui.add(Slider::new(&mut self.settings_window.scale_factor, 1.0..=1.5));
+                            ui.end_row();
+                        });
+
+                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                    ui.separator();
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Save").clicked() {
+                            self.config.settings.scale_factor = self.settings_window.scale_factor;
+                            self.save_config();
+                            self.settings_window = structs::SettingsWindow::default();
+                        }
+                        if ui.button("Close").clicked() {
+                            self.settings_window = structs::SettingsWindow::default();
+                        }
+                    });
+                });
+            });
+        }
     }
 
     fn update_pages(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -1011,7 +1048,7 @@ impl Main<'_> {
 impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_theme(egui::Theme::Dark);
-        ctx.set_zoom_factor(1.125);
+        ctx.set_zoom_factor(self.config.settings.scale_factor);
 
         if self.login_window.show {
             CentralPanel::default().show(ctx, |_| {});
@@ -1249,6 +1286,16 @@ impl App for Main<'_> {
                     if ui.button("Add server").clicked() {
                         self.add_server_window.show = true;
                     }
+                });
+
+                ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                    ui.add_space(4.0);
+
+                    if ui.button("Settings").clicked() {
+                        self.settings_window.show = true;
+                    }
+
+                    ui.separator();
                 });
             });
 
