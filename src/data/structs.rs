@@ -152,7 +152,8 @@ impl Default for LoginWindow {
 }
 
 pub struct Icons<'a> {
-    pub warning: egui::Image<'a>,
+    pub warning_light: egui::Image<'a>,
+    pub warning_dark: egui::Image<'a>,
     pub rs_postgres: egui::Image<'a>,
 }
 

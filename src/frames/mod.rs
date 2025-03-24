@@ -65,7 +65,8 @@ impl Main<'_> {
             login_window: structs::LoginWindow::default(),
             settings_window: structs::SettingsWindow::default(),
             icons: structs::Icons {
-                warning: egui::Image::new(icons::WARNING).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
+                warning_light: egui::Image::new(icons::WARNING_LIGHT).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
+                warning_dark: egui::Image::new(icons::WARNING_DARK).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
                 rs_postgres: egui::Image::new(icons::RS_POSTGRES).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
             },
             runtime,
@@ -1055,12 +1056,15 @@ impl Main<'_> {
                                         structs::SQLQueryExecutionStatusType::Error(e) => {
                                             ui.separator();
 
-                                            ui.horizontal(|ui| {
-                                                ui.add(self.icons.warning.clone());
-                                                ui.label("Error");
-                                            });
-
-                                            ui.heading(e);
+                                            let warning_icon = match self.config.settings.theme {
+                                                structs::Theme::Light => self.icons.warning_light.clone(),
+                                                _ => self.icons.warning_dark.clone(),
+                                            };
+                                            if ui.add(warning_icon).hovered() {
+                                                egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), Id::new("warning_tooltip"), |ui| {
+                                                    ui.label("Error");
+                                                });
+                                            }
                                         }
                                     }
                                 }
@@ -1260,7 +1264,11 @@ impl App for Main<'_> {
                                     }).header_response)
                                 }
                                 Some(structs::DbState::Error(e)) => {
-                                    let warning = ui.add(self.icons.warning.clone());
+                                    let warning_icon = match self.config.settings.theme {
+                                        structs::Theme::Light => self.icons.warning_dark.clone(),
+                                        _ => self.icons.warning_light.clone(),
+                                    };
+                                    let warning = ui.add(warning_icon);
                                     if warning.hovered() {
                                         egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), id, |ui| {
                                             ui.label(e);
