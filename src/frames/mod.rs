@@ -31,6 +31,7 @@ pub struct Main<'a> {
     config: structs::Config,
     add_server_window: structs::AddServerWindow,
     delete_server_window: structs::DeleteServerWindow,
+    edit_server_window: structs::EditServerWindow,
     sql_response_copy_window: structs::SQLResponseCopyWindow,
     login_window: structs::LoginWindow,
     icons: structs::Icons<'a>,
@@ -56,6 +57,7 @@ impl Main<'_> {
             config: structs::Config::default(),
             add_server_window: structs::AddServerWindow::default(),
             delete_server_window: structs::DeleteServerWindow::default(),
+            edit_server_window: structs::EditServerWindow::default(),
             sql_response_copy_window: structs::SQLResponseCopyWindow::default(),
             login_window: structs::LoginWindow::default(),
             icons: structs::Icons {
@@ -204,6 +206,49 @@ impl Main<'_> {
         file.write_all(sqlquery_page.code.as_bytes()).unwrap();
     }
 
+    async fn reload_server(index: usize, config: structs::Config, dbs: Arc<Mutex<HashMap<String, structs::DbState>>>) {
+        let server = &config.servers[index];
+        let id = format!("server:{}:{}:{}", server.ip, server.port, server.user);
+
+        {
+            let mut dbs = dbs.lock().unwrap();
+            dbs.remove(&id);
+        }
+
+        let database_url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            server.user, server.password, server.ip, server.port, server.service_database
+        );
+        match database::Database::new(&database_url).await {
+            Ok(database) => {
+                let databases = database.get_databases().await;
+                match databases {
+                    Ok(databases) => {
+                        let loaded_databases: Vec<structs::LoadedDatabase> = databases
+                            .into_iter()
+                            .map(|name| structs::LoadedDatabase {
+                                name,
+                                database: database.clone(),
+                            })
+                            .collect();
+                        let mut dbs = dbs.lock().unwrap();
+                        dbs.insert(id, structs::DbState::Loaded(loaded_databases));
+                    }
+                    Err(e) => {
+                        error!("Error loading databases for server {}: {}", server.ip, e);
+                        let mut dbs = dbs.lock().unwrap();
+                        dbs.insert(id, structs::DbState::Error(e.to_string()));
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Error connecting to server {}: {}", server.ip, e);
+                let mut dbs = dbs.lock().unwrap();
+                dbs.insert(id, structs::DbState::Error(e.to_string()));
+            }
+        }
+    }
+
     fn update_windows(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.add_server_window.show {
             Modal::new(Id::new("add_server_modal"))
@@ -348,6 +393,132 @@ impl Main<'_> {
                     });
                 }
             }
+        }
+
+        if self.edit_server_window.show {
+            Modal::new(Id::new("edit_server_modal")).show(ctx, |ui| {
+                widgets::modal_label(ui, "Add server");
+
+                    Grid::new("server_form")
+                        .num_columns(2)
+                        .spacing([40.0, 4.0])
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("Name");
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.name_field));
+                            ui.end_row();
+
+                            ui.label("Server address");
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.ip_field));
+                            ui.end_row();
+
+                            ui.label("Port");
+                            let is_error = self.edit_server_window.port_field.parse::<u16>().is_err();
+                            let mut field = TextEdit::singleline(&mut self.edit_server_window.port_field);
+                            if is_error {
+                                field = field.text_color(Color32::from_rgb(255, 0, 0));
+                            }
+                            ui.add(field);
+                            ui.end_row();
+
+                            ui.label("User");
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.user_field));
+                            ui.end_row();
+
+                            ui.label("Password");
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.password_field));
+                            ui.end_row();
+
+                            ui.label("Service DB");
+                            ui.add(TextEdit::singleline(&mut self.edit_server_window.service_database_field));
+                            ui.end_row();
+                        });
+
+                    let is_name_error = {
+                        if self.edit_server_window.name_field.is_empty() {
+                            ui.label("• Name is required");
+                            true
+                        } else if self.edit_server_window.name_field.chars().count() > 32 {
+                            ui.label("• Name must be less than 32 characters");
+                            true
+                        } else if self.config.servers.iter().any(|server| server.alias == self.edit_server_window.name_field && server.alias != self.edit_server_window.original_server.as_ref().unwrap().alias) {
+                            ui.label("• Name must be unique");
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    let is_ip_error = {
+                        if self.edit_server_window.ip_field.is_empty() {
+                            ui.label("• IP is required");
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    let is_port_error = {
+                        if self.edit_server_window.port_field.parse::<u16>().is_err() {
+                            ui.label("• Incorrect port value");
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    let is_user_error = {
+                        if self.edit_server_window.user_field.is_empty() {
+                            ui.label("• User is required");
+                            true
+                        } else {
+                            false
+                        }
+                    };
+
+                    let enable_save_button = !is_name_error && !is_ip_error && !is_port_error && !is_user_error;
+
+                    ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                        ui.separator();
+
+                        ui.horizontal(|ui| {
+                            if ui.add_enabled(enable_save_button, Button::new("Save")).clicked() {
+                                let server = structs::Server {
+                                    alias: self.edit_server_window.name_field.clone(),
+                                    ip: self.edit_server_window.ip_field.clone(),
+                                    port: self.edit_server_window.port_field.parse::<u16>().unwrap(),
+                                    user: self.edit_server_window.user_field.clone(),
+                                    password: self.edit_server_window.password_field.clone(),
+                                    service_database: self.edit_server_window.service_database_field.clone(),
+                                };
+                                let mut original_server_index: Option<usize> = None;
+
+                                let original_server = self.edit_server_window.original_server.clone().unwrap();
+                                let original_server_id = format!("server:{}:{}:{}", original_server.ip, original_server.port, original_server.user);
+
+                                for server_idx in 0..self.config.servers.len() {
+                                    let server_in_find = &self.config.servers[server_idx];
+                                    let id_string = format!("server:{}:{}:{}", server_in_find.ip, server_in_find.port, server_in_find.user);
+
+                                    if original_server_id == id_string {
+                                        original_server_index = Some(server_idx);
+                                    }
+                                }
+
+                                self.config.servers[original_server_index.unwrap()] = server;
+                                self.save_config();
+                                self.edit_server_window = structs::EditServerWindow::default();
+
+                                let dbs = self.db_manager.dbs.clone();
+                                let config = self.config.clone();
+
+                                self.runtime.spawn(async move {
+                                    Self::reload_server(original_server_index.unwrap(), config, dbs).await;
+                                });
+                            }
+                            if ui.button("Back").clicked() {
+                                self.edit_server_window = structs::EditServerWindow::default();
+                            }
+                        });
+                    });
+            });
         }
 
         if self.sql_response_copy_window.show {
@@ -912,6 +1083,27 @@ impl App for Main<'_> {
                                             ui.memory_mut(|mem| mem.close_popup());
                                             self.delete_server_window.show = true;
                                             self.delete_server_window.server = Some(server.clone());
+                                        } else if ui.button("Edit").clicked() {
+                                            self.edit_server_window.show = true;
+                                            self.edit_server_window.server = Some(server.clone());
+                                            self.edit_server_window.original_server = Some(server.clone());
+
+                                            self.edit_server_window.name_field = server.alias.clone();
+                                            self.edit_server_window.ip_field = server.ip.clone();
+                                            self.edit_server_window.port_field = server.port.to_string();
+                                            self.edit_server_window.user_field = server.user.clone();
+                                            self.edit_server_window.password_field = server.password.clone();
+                                            self.edit_server_window.service_database_field = server.service_database.clone();
+                                        } else if ui.button("Reload").clicked() {
+                                            let dbs = self.db_manager.dbs.clone();
+                                            let config = self.config.clone();
+                                            let idx = idx.clone();
+
+                                            ui.memory_mut(|mem| mem.close_popup());
+
+                                            self.runtime.spawn(async move {
+                                                Self::reload_server(idx, config, dbs).await;
+                                            });
                                         }
                                     });
                                 }

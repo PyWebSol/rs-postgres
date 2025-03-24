@@ -51,6 +51,19 @@ pub struct DeleteServerWindow {
 }
 
 #[derive(Default)]
+pub struct EditServerWindow {
+    pub show: bool,
+    pub name_field: String,
+    pub ip_field: String,
+    pub port_field: String,
+    pub user_field: String,
+    pub password_field: String,
+    pub service_database_field: String,
+    pub server: Option<Server>,
+    pub original_server: Option<Server>,
+}
+
+#[derive(Default)]
 pub struct SQLResponseCopyWindow {
     pub show: bool,
     pub response: Option<String>,
