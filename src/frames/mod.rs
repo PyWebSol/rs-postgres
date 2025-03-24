@@ -22,7 +22,6 @@ use std::time::Instant;
 use crate::utils::{encrypt_string, decrypt_string};
 use std::fs::File;
 use serde_json;
-use serde_merge;
 
 struct DbManager {
     dbs: Arc<Mutex<HashMap<String, structs::DbState>>>,
