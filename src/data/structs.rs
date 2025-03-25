@@ -180,6 +180,9 @@ pub enum DbState {
 #[derive(Clone, Debug)]
 pub struct SQLQueryExecutionSuccess {
     pub result: IndexMap<String, Vec<ValueType>>,
+    pub current_page: Option<IndexMap<String, Vec<ValueType>>>,
+    pub pages_count: u32,
+    pub rows_count: u32,
     pub execution_time: u64,
     pub page_index: u32,
 }
