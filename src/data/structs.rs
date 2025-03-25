@@ -237,6 +237,7 @@ pub struct SQLQueryPage {
     pub code: String,
     pub code_file_path: Option<String>,
     pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatusType>>>,
+    pub update_page_index: Option<u32>,
 }
 
 #[derive(Clone)]

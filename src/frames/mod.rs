@@ -14,7 +14,7 @@ use egui::{
 };
 use egui_extras::{TableBuilder, Column};
 use egui_file_dialog::FileDialog;
-use log::{debug, info, error};
+use log::{info, error};
 use std::fs as std_fs;
 use std::collections::HashMap;
 use std::io::Read;
@@ -243,31 +243,24 @@ impl Main<'_> {
     }
 
     fn get_sql_query_slice(result: &IndexMap<String, Vec<structs::ValueType>>, page_index: u32) -> IndexMap<String, Vec<structs::ValueType>> {
-        let start_index = (page_index as usize) * ROWS_PER_PAGE as usize;
         let total_rows = result.values().next().map_or(0, |v| v.len());
-        
-        // Проверяем, чтобы start_index не превышал общее количество строк
-        let start_index = if start_index > total_rows {
-            total_rows.saturating_sub(ROWS_PER_PAGE as usize)
-        } else {
-            start_index
-        };
+        let pages_count = (total_rows as f32 / ROWS_PER_PAGE as f32).ceil() as u32;
 
-        let end_index = if start_index + ROWS_PER_PAGE as usize > total_rows {
-            total_rows
+        let start_index = page_index as usize * ROWS_PER_PAGE as usize;
+        let end_index = if page_index == pages_count - 1 {
+            result[result.keys().next().unwrap()].len()
         } else {
-            start_index + ROWS_PER_PAGE as usize
-        };
-
-        let end_index = if end_index <= start_index {
-            start_index + 1
-        } else {
-            end_index
+            ((page_index + 1) * ROWS_PER_PAGE as u32) as usize
         };
 
         let mut current_page = IndexMap::new();
         for (key, value) in result {
-            current_page.insert(key.clone(), value[start_index..end_index].to_vec());
+            if start_index >= value.len() {
+                current_page.insert(key.clone(), vec![]);
+            } else {
+                let slice = value[start_index..end_index.min(value.len())].to_vec();
+                current_page.insert(key.clone(), slice);
+            }
         }
         current_page
     }
@@ -275,15 +268,17 @@ impl Main<'_> {
     async fn fetch_sql_query(database: database::Database, code: &str, sql_query_execution_status: Option<Arc<Mutex<structs::SQLQueryExecutionStatusType>>>) {
         let start_time = Instant::now();
         let result = database.execute_query(&code).await;
-        let execution_time = start_time.elapsed().as_millis() as u64;        
+        let execution_time = start_time.elapsed().as_millis() as u64;
 
         let execution_status = match result {
             Ok(result) => {
                 let pages_count = match result.is_empty() {
                     true => 0,
-                    false => result.values().next().unwrap().len(),
-                } as u32;
+                    false => (result.values().next().unwrap().len() as f32 / ROWS_PER_PAGE as f32).ceil() as u32,
+                };
                 let rows_count = result.values().next().map_or(0, |v| v.len()) as u32;
+
+                log::debug!("fetch_sql_query: rows_count={}, pages_count={}", rows_count, pages_count);
 
                 structs::SQLQueryExecutionStatusType::Success(structs::SQLQueryExecutionSuccess {
                     result: result.clone(),
@@ -1009,8 +1004,15 @@ impl Main<'_> {
                                 ui.add_space(8.0);
 
                                 if let Some(sql_query_execution_status) = &sqlquery_page.sql_query_execution_status {
-                                    let sql_query_execution_status_mutex = sql_query_execution_status.lock().unwrap();
-                                    let mut sql_query_execution_status = &*sql_query_execution_status_mutex;
+                                    let mut sql_query_execution_status_mutex = sql_query_execution_status.lock().unwrap();
+                                    if let Some(update_page_index) = sqlquery_page.update_page_index {
+                                        if let structs::SQLQueryExecutionStatusType::Success(ref mut result) = *sql_query_execution_status_mutex {
+                                            result.page_index = update_page_index;
+                                            result.current_page = Some(Self::get_sql_query_slice(&result.result, update_page_index));
+                                        }
+                                        sqlquery_page.update_page_index = None;
+                                    }
+                                    let sql_query_execution_status = &*sql_query_execution_status_mutex;
 
                                     match &sql_query_execution_status {
                                         structs::SQLQueryExecutionStatusType::Running => {
@@ -1029,13 +1031,6 @@ impl Main<'_> {
                                             let pages_count = result.pages_count;
 
                                             if !data.is_empty() && pages_count > 0 {
-                                                let start_index = (result.page_index * ROWS_PER_PAGE as u32) as usize;
-                                                let end_index = if start_index + ROWS_PER_PAGE as usize > data.values().next().unwrap().len() {
-                                                    data.values().next().unwrap().len()
-                                                } else {
-                                                    start_index + ROWS_PER_PAGE as usize
-                                                };
-
                                                 let available_height = ui.available_height() - if pages_count > 1 {
                                                     64.0
                                                 } else {
@@ -1052,7 +1047,7 @@ impl Main<'_> {
                                                 });
 
                                                 ui.separator();
-                                            
+
                                                 ScrollArea::horizontal().auto_shrink([false, false]).max_width(available_width).max_height(available_height).show(ui, |ui| {
                                                     TableBuilder::new(ui)
                                                         .striped(true)
@@ -1070,20 +1065,19 @@ impl Main<'_> {
                                                         })
                                                         .body(|mut body| {
                                                             let values = data.values()
-                                                                .map(|v| v[start_index..end_index]
-                                                                    .iter()
+                                                                .map(|v| v.iter()
                                                                     .map(|x| x.to_string())
                                                                     .collect::<Vec<String>>())
                                                                 .collect::<Vec<Vec<String>>>();
 
-                                                            for i in 0..(end_index - start_index) {
+                                                            for i in 0..values.iter().next().unwrap().len() {
                                                                 body.row(16.0, |mut row| {
                                                                     for value in &values {
                                                                         row.col(|ui| {
                                                                             let content = value[i].to_string();
                                                                             let label = content.clone().replace("\n", " ");
 
-                                                                            let label = Label::new(label)
+                                                                            let label: Label = Label::new(label)
                                                                                 .wrap_mode(egui::TextWrapMode::Truncate);
                                                                             let label_widget = ui.add(label);
 
@@ -1107,35 +1101,33 @@ impl Main<'_> {
 
                                                         ui.horizontal_centered(|ui| {
                                                             if ui.add_enabled(result.page_index != 0, Button::new("<<<")).clicked() {
-                                                                if let structs::SQLQueryExecutionStatusType::Success(mut success) = sql_query_execution_status.clone() {
-                                                                    success.page_index = 0;
-                                                                    success.current_page = Some(Self::get_sql_query_slice(&result.result, 0));
-                                                                }
+                                                                sqlquery_page.update_page_index = Some(0);
                                                             }
                                                             if ui.add_enabled(result.page_index != 0, Button::new("<")).clicked() {
-                                                                if let structs::SQLQueryExecutionStatusType::Success(mut success) = sql_query_execution_status.clone() {
-                                                                    success.page_index -= 1;
-                                                                    success.current_page = Some(Self::get_sql_query_slice(&result.result, success.page_index));
-                                                                }
+                                                                sqlquery_page.update_page_index = Some(result.page_index - 1);
                                                             }
 
                                                             ui.separator();
 
-                                                            ui.label(format!("{}/{}; {}..{}", result.page_index + 1, pages_count, result.page_index * ROWS_PER_PAGE as u32, if result.page_index == pages_count as u32 - 1 { data[data.keys().next().unwrap()].len() } else { ((result.page_index + 1) * ROWS_PER_PAGE as u32) as usize }));
+                                                            ui.label(format!(
+                                                                "{}/{}; {}..{}", 
+                                                                result.page_index + 1, 
+                                                                pages_count,
+                                                                result.page_index * ROWS_PER_PAGE as u32, 
+                                                                if result.page_index == pages_count - 1 {
+                                                                    result.rows_count
+                                                                } else {
+                                                                    (result.page_index + 1) * ROWS_PER_PAGE as u32
+                                                                }
+                                                            ));
 
                                                             ui.separator();
 
                                                             if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new(">")).clicked() {
-                                                                if let structs::SQLQueryExecutionStatusType::Success(mut success) = sql_query_execution_status.clone() {
-                                                                    success.page_index += 1;
-                                                                    success.current_page = Some(Self::get_sql_query_slice(&result.result, success.page_index));
-                                                                }
+                                                                sqlquery_page.update_page_index = Some(result.page_index + 1);
                                                             }
                                                             if ui.add_enabled(result.page_index != pages_count as u32 - 1, Button::new(">>>")).clicked() {
-                                                                if let structs::SQLQueryExecutionStatusType::Success(mut success) = sql_query_execution_status.clone() {
-                                                                    success.page_index = pages_count as u32 - 1;
-                                                                    success.current_page = Some(Self::get_sql_query_slice(&result.result, success.page_index));
-                                                                }
+                                                                sqlquery_page.update_page_index = Some(pages_count as u32 - 1);
                                                             }
                                                         });
                                                     }
