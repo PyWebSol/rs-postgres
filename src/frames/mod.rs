@@ -1,10 +1,12 @@
 mod widgets;
+mod debug;
 
 use crate::data::*;
 use crate::database;
 use crate::utils;
 
 use eframe::{egui, App};
+use egui::TopBottomPanel;
 use egui::{
     RichText, Modal, CentralPanel, Spinner, Layout, Align, TextEdit, Color32,
     Button, CollapsingHeader, Id, Grid, ScrollArea, Label,
@@ -44,10 +46,12 @@ pub struct Main<'a> {
     select_file_dialog: FileDialog,
     select_file_dialog_action: Option<structs::SelectFileDialogAction>,
     trans: translates::Translator,
+    frame_history: debug::FrameHistory,
+    debug: bool,
 }
 
 impl Main<'_> {
-    pub fn new(ctx: &egui::Context) -> Self {
+    pub fn new(ctx: &egui::Context, debug: bool) -> Self {
         egui_extras::install_image_loaders(ctx);
 
         let dbs = Arc::new(Mutex::new(HashMap::new()));
@@ -76,6 +80,8 @@ impl Main<'_> {
             select_file_dialog: FileDialog::new(),
             select_file_dialog_action: None,
             trans: translates::Translator::new(translates::Language::English),
+            frame_history: debug::FrameHistory::default(),
+            debug,
         };
 
         main.load_config();
@@ -1146,6 +1152,21 @@ impl App for Main<'_> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_theme(self.config.settings.theme.to_egui());
         ctx.set_zoom_factor(self.config.settings.scale_factor);
+
+        if self.debug {
+            self.frame_history
+                .on_new_frame(ctx.input(|i| i.time), _frame.info().cpu_usage);
+
+            TopBottomPanel::top(Id::new("debug_panel")).show(ctx, |ui| {
+                ui.label(format!("{:.2} FPS", self.frame_history.fps()));
+
+                self.frame_history.ui(ui);
+
+                if ui.button("Panic").clicked() {
+                    panic!("Panic button clicked");
+                }
+            });
+        }
 
         if self.login_window.show {
             CentralPanel::default().show(ctx, |_| {});

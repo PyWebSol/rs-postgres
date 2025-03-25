@@ -12,7 +12,9 @@ fn main() {
     let mut builder = Builder::new();
 
     let args: Vec<String> = env::args().collect();
-    if args.contains(&String::from("--debug")) {
+    let debug = args.contains(&String::from("--debug"));
+
+    if debug {
         builder.filter_level(LevelFilter::Debug);
     } else {
         builder.filter_level(LevelFilter::Info);
@@ -32,6 +34,6 @@ fn main() {
     eframe::run_native(
         format!("Rs-Postgres (v{})", env!("CARGO_PKG_VERSION")).as_str(),
         options,
-        Box::new(|cc| Ok(Box::new(frames::Main::new(&cc.egui_ctx)))),
+        Box::new(|cc| Ok(Box::new(frames::Main::new(&cc.egui_ctx, debug)))),
     ).unwrap();
 }
