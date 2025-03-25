@@ -954,8 +954,6 @@ impl Main<'_> {
                                     }
                                 });
 
-                                ui.add_space(16.0);
-
                                 if let Some(code_file_path) = &sqlquery_page.code_file_path {
                                     ui.horizontal(|ui| {
                                         ui.label(self.trans.file());
@@ -964,6 +962,8 @@ impl Main<'_> {
                                         ));
                                     });
                                 }
+
+                                ui.add_space(8.0);
 
                                 let mut theme = egui_extras::syntax_highlighting::CodeTheme::light(12.0);
 

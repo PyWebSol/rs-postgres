@@ -16,9 +16,13 @@ pub fn modal_label(ui: &mut Ui, title: impl Into<RichText>) {
 pub fn top_panel(ctx: &Context, content: impl FnOnce(&mut Ui) -> ()) {
     TopBottomPanel::top("pages_panel").show(ctx, |ui| {
         ScrollArea::both().show(ui, |ui| {
+            ui.add_space(2.0);
+
             ui.horizontal_top(|ui| {
                 content(ui);
             });
+
+            ui.add_space(2.0);
         });
     });
 }
