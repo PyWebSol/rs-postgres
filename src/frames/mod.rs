@@ -966,7 +966,7 @@ impl Main<'_> {
 
                                             ui.separator();
                                         }
-                                        structs::SQLQueryExecutionStatusType::Success(result) => {
+                                        structs::SQLQueryExecutionStatusType::Success(result) => {                                            
                                             let data = &result.result;
                                             let rows_count = match data.is_empty() {
                                                 true => 0,
@@ -975,31 +975,32 @@ impl Main<'_> {
                                             let execution_time = result.execution_time;
 
                                             let pages_count = (rows_count as f32 / ROWS_PER_PAGE as f32).ceil() as u16;
-                                            let start_index = (result.page_index * ROWS_PER_PAGE as u32) as usize;
-                                            let end_index = if start_index + ROWS_PER_PAGE as usize > data[data.keys().next().unwrap()].len() {
-                                                data[data.keys().next().unwrap()].len()
-                                            } else {
-                                                start_index + ROWS_PER_PAGE as usize
-                                            };
 
-                                            let available_height = ui.available_height() - if pages_count > 1 {
-                                                64.0
-                                            } else {
-                                                0.0
-                                            };
-                                            let available_width = ui.available_width();
+                                            if !data.is_empty() && pages_count > 0 {
+                                                let start_index = (result.page_index * ROWS_PER_PAGE as u32) as usize;
+                                                let end_index = if start_index + ROWS_PER_PAGE as usize > data[data.keys().next().unwrap()].len() {
+                                                    data[data.keys().next().unwrap()].len()
+                                                } else {
+                                                    start_index + ROWS_PER_PAGE as usize
+                                                };
 
-                                            ui.horizontal(|ui| {
-                                                ui.label(self.trans.success());
+                                                let available_height = ui.available_height() - if pages_count > 1 {
+                                                    64.0
+                                                } else {
+                                                    0.0
+                                                };
+                                                let available_width = ui.available_width();
+
+                                                ui.horizontal(|ui| {
+                                                    ui.label(self.trans.success());
+                                                    ui.separator();
+                                                    ui.label(self.trans.rows(rows_count));
+                                                    ui.separator();
+                                                    ui.label(self.trans.time(execution_time));
+                                                });
+
                                                 ui.separator();
-                                                ui.label(self.trans.rows(rows_count));
-                                                ui.separator();
-                                                ui.label(self.trans.time(execution_time));
-                                            });
-
-                                            ui.separator();
-
-                                            if !data.is_empty() {
+                                            
                                                 ScrollArea::horizontal().auto_shrink([false, false]).max_width(available_width).max_height(available_height).show(ui, |ui| {
                                                     TableBuilder::new(ui)
                                                         .striped(true)
