@@ -157,6 +157,26 @@ impl Default for LoginWindow {
     }
 }
 
+pub struct ChangePasswordWindow {
+    pub show: bool,
+    pub old_password: String,
+    pub new_password: String,
+    pub confirm_password: String,
+    pub error: Option<String>,
+}
+
+impl Default for ChangePasswordWindow {
+    fn default() -> Self {
+        Self {
+            show: false,
+            old_password: String::new(),
+            new_password: String::new(),
+            confirm_password: String::new(),
+            error: None,
+        }
+    }
+}
+
 pub struct Icons<'a> {
     pub warning_light: egui::Image<'a>,
     pub warning_dark: egui::Image<'a>,

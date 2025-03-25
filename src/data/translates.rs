@@ -513,4 +513,40 @@ impl Translator {
             Language::Russian => "Перезагрузить".to_string(),
         }
     }
+
+    pub fn change_password(&self) -> String {
+        match self.language {
+            Language::English => "Change password".to_string(),
+            Language::Russian => "Сменить пароль".to_string(),
+        }
+    }
+
+    pub fn old_password(&self) -> String {
+        match self.language {
+            Language::English => "Old password".to_string(),
+            Language::Russian => "Старый пароль".to_string(),
+        }
+    }
+
+    pub fn new_password(&self) -> String {
+        match self.language {
+            Language::English => "New password".to_string(),
+            Language::Russian => "Новый пароль".to_string(),
+        }
+    }
+
+    pub fn confirm_password(&self) -> String {
+        match self.language {
+            Language::English => "Confirm password".to_string(),
+            Language::Russian => "Подтвердите пароль".to_string(),
+        }
+    }
+
+    pub fn passwords_do_not_match(&self) -> String {
+        match self.language {
+            Language::English => "Passwords do not match".to_string(),
+            Language::Russian => "Пароли не совпадают".to_string(),
+        }
+    }
+
 }

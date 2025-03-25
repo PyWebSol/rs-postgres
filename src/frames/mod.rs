@@ -40,6 +40,7 @@ pub struct Main<'a> {
     sql_response_copy_window: structs::SQLResponseCopyWindow,
     settings_window: structs::SettingsWindow,
     login_window: structs::LoginWindow,
+    change_password_window: structs::ChangePasswordWindow,
     icons: structs::Icons<'a>,
     runtime: tokio::runtime::Runtime,
     pages: structs::Pages,
@@ -70,6 +71,7 @@ impl Main<'_> {
             sql_response_copy_window: structs::SQLResponseCopyWindow::default(),
             login_window: structs::LoginWindow::default(),
             settings_window: structs::SettingsWindow::default(),
+            change_password_window: structs::ChangePasswordWindow::default(),
             icons: structs::Icons {
                 warning_light: egui::Image::new(icons::WARNING_LIGHT).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
                 warning_dark: egui::Image::new(icons::WARNING_DARK).bg_fill(Color32::TRANSPARENT).max_size(egui::vec2(32.0, 32.0)),
@@ -760,6 +762,12 @@ impl Main<'_> {
                                 }
                             });
                             ui.end_row();
+
+                            ui.label(self.trans.change_password());
+                            if ui.button(self.trans.change_password()).clicked() {
+                                self.change_password_window.show = true;
+                                self.settings_window = structs::SettingsWindow::default();
+                            }
                         });
 
                 ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
@@ -777,6 +785,71 @@ impl Main<'_> {
                         }
                         if ui.button(self.trans.close()).clicked() {
                             self.settings_window = structs::SettingsWindow::default();
+                        }
+                    });
+                });
+            });
+        }
+
+        if self.change_password_window.show {
+            Modal::new(Id::new("change_password_modal")).show(ctx, |ui| {
+                widgets::modal_label(ui, self.trans.change_password());
+
+                if let Some(error) = &self.change_password_window.error {
+                    ui.label(RichText::new(error).color(Color32::RED));
+                }
+
+                Grid::new("change_password_form")
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        let input_color = self.config.settings.theme.text_input_color();
+
+                        ui.label(self.trans.old_password());
+                        ui.add(TextEdit::singleline(&mut self.change_password_window.old_password)
+                            .password(true)
+                            .background_color(input_color));
+                        ui.end_row();
+
+                        ui.label(self.trans.new_password());
+                        ui.add(TextEdit::singleline(&mut self.change_password_window.new_password)
+                            .password(true)
+                            .background_color(input_color));
+                        ui.end_row();
+
+                        ui.label(self.trans.confirm_password());
+                        ui.add(TextEdit::singleline(&mut self.change_password_window.confirm_password)
+                            .password(true)
+                            .background_color(input_color));
+                        ui.end_row();
+                    });
+
+                let is_passwords_match_error = self.change_password_window.new_password != self.change_password_window.confirm_password;
+
+                if is_passwords_match_error {
+                    ui.label(RichText::new(self.trans.passwords_do_not_match()).color(Color32::RED));
+                }
+
+                ui.with_layout(Layout::top_down(Align::RIGHT), |ui| {
+                    ui.separator();
+
+                    ui.horizontal(|ui| {
+                        if ui.add_enabled(!is_passwords_match_error, Button::new(self.trans.save())).clicked() {
+                            let new_password_hash = utils::create_checksum(&self.change_password_window.new_password);
+
+                            if self.config.password_hash.is_some() && self.config.password_hash.clone().unwrap() == utils::create_checksum(&self.change_password_window.old_password) {
+                                self.password = Some(self.change_password_window.new_password.clone());
+                                self.config.password_hash = Some(new_password_hash);
+                                self.save_config();
+
+                                self.change_password_window = structs::ChangePasswordWindow::default();
+                            } else {
+                                self.change_password_window.error = Some(self.trans.incorrect_password_hash_mismatch());
+                            }
+                        }
+                        if ui.button(self.trans.close()).clicked() {
+                            self.change_password_window = structs::ChangePasswordWindow::default();
                         }
                     });
                 });
