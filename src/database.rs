@@ -118,7 +118,11 @@ impl Database {
                     // Binary
                     "BYTEA" => row
                         .try_get::<Vec<u8>, _>(column_name.as_str())
-                        .map(ValueType::Bytea)
+                        .map(|bytes| {
+                            String::from_utf8(bytes)
+                                .map(ValueType::Text)
+                                .unwrap_or_else(|e| ValueType::Bytea(e.into_bytes()))
+                        })
                         .unwrap_or(ValueType::Null),
 
                     // Date/Time types
