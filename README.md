@@ -72,10 +72,10 @@ cargo run -- --debug
 - [ ] Connection health monitoring
 - [x] Query execution time tracking
 - [x] Query results pagination
-- [ ] Query results export to CSV and JSON
+- [x] Query results export to CSV
 - [x] Editing server connection details
 - [x] Syntax highlighting
-- [ ] Translations
+- [x] Translations
 - [x] SQL query operations presets for tables
 
 # Support 🤗
