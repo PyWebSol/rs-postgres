@@ -313,6 +313,33 @@ impl Main<'_> {
         file.write_all(sqlquery_page.code.as_bytes()).unwrap();
     }
 
+    fn export_output_to_csv(data: &IndexMap<String, Vec<structs::ValueType>>, file_path: String) {
+        let file = File::create(file_path).unwrap();
+        let mut wtr = csv::Writer::from_writer(file);
+
+        let headers: Vec<&str> = data.keys().map(|k| k.as_str()).collect();
+
+        wtr.write_record(&headers).unwrap();
+
+        if let Some(first_column) = data.values().next() {
+            let row_count = first_column.len();
+            for i in 0..row_count {
+                let mut record = Vec::with_capacity(data.len());
+
+                for col in data.values() {
+                    let value = col.get(i)
+                        .map(|v| v.to_string())
+                        .unwrap_or_default();
+                    record.push(value);
+                }
+
+                wtr.write_record(&record).unwrap();
+            }
+        }
+
+        wtr.flush().unwrap();
+    }
+
     async fn reload_server(index: usize, config: structs::Config, dbs: Arc<Mutex<HashMap<String, structs::DbState>>>) {
         let server = &config.servers[index];
         let id = format!("server:{}:{}:{}", server.ip, server.port, server.user);
@@ -993,6 +1020,11 @@ impl Main<'_> {
                                         self.select_file_dialog.pick_file();
                                     }
 
+                                    if ui.add_enabled(!sqlquery_page.output_is_empty, Button::new(self.trans.export_to_csv())).clicked() || (ui.input(|i| i.modifiers.ctrl && i.key_pressed(Key::E)) && !sqlquery_page.output_is_empty) {
+                                        self.select_file_dialog_action = Some(structs::SelectFileDialogAction::ExportToCsv);
+                                        self.select_file_dialog.save_file();
+                                    }
+
                                     self.select_file_dialog.update(ctx);
 
                                     if let Some(action) = &self.select_file_dialog_action {
@@ -1023,6 +1055,18 @@ impl Main<'_> {
                                                     }
                                                 }
                                             },
+                                            structs::SelectFileDialogAction::ExportToCsv => {
+                                                if let Some(file_path) = self.select_file_dialog.take_picked() {
+                                                    match sqlquery_page.sql_query_execution_status.clone().unwrap().lock().unwrap().clone() {
+                                                        structs::SQLQueryExecutionStatusType::Success(sqlquery_execution_success) => {
+                                                            let result = &sqlquery_execution_success.result;
+
+                                                            Self::export_output_to_csv(result, file_path.to_string_lossy().to_string());
+                                                        },
+                                                        _ => {},
+                                                    };
+                                                }
+                                            }
                                         }
                                     }
                                 });
@@ -1104,6 +1148,8 @@ impl Main<'_> {
                                             let pages_count = result.pages_count;
 
                                             if !data.is_empty() && pages_count > 0 {
+                                                sqlquery_page.output_is_empty = false;
+
                                                 let available_height = ui.available_height() - if pages_count > 1 {
                                                     64.0
                                                 } else {
@@ -1205,6 +1251,8 @@ impl Main<'_> {
                                                         });
                                                     }
                                                 } else {
+                                                    sqlquery_page.output_is_empty = true;
+
                                                     ui.heading(self.trans.no_data_returned());
                                                 }
                                         }

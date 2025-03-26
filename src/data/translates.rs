@@ -171,6 +171,13 @@ impl Translator {
         }
     }
 
+    pub fn export_to_csv(&self) -> String {
+        match self.language {
+            Language::English => "Export to CSV".to_string(),
+            Language::Russian => "Экспорт в CSV".to_string(),
+        }
+    }
+
     pub fn open(&self) -> String {
         match self.language {
             Language::English => "Open".to_string(),

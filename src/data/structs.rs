@@ -257,6 +257,7 @@ pub struct SQLQueryPage {
     pub code: String,
     pub code_file_path: Option<String>,
     pub sql_query_execution_status: Option<Arc<Mutex<SQLQueryExecutionStatusType>>>,
+    pub output_is_empty: bool,
     pub update_page_index: Option<u32>,
 }
 
@@ -307,4 +308,5 @@ pub enum Action {
 pub enum SelectFileDialogAction {
     SaveFile,
     OpenFile,
+    ExportToCsv,
 }

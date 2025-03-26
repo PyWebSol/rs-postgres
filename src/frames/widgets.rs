@@ -46,6 +46,7 @@ pub fn script_preset(ui: &mut Ui, pages: &mut structs::Pages, database: &structs
                 code: script.to_string(),
                 code_file_path: None,
                 sql_query_execution_status: None,
+                output_is_empty: true,
                 update_page_index: None,
             }),
             ..Default::default()
