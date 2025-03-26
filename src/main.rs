@@ -32,7 +32,11 @@ fn main() {
         .with_icon(utils::load_icon());
 
     eframe::run_native(
-        format!("Rs-Postgres (v{})", env!("CARGO_PKG_VERSION")).as_str(),
+        format!("Rs-Postgres {} {}", env!("CARGO_PKG_VERSION"), if debug {
+            "(Debug mode)"
+        } else {
+            ""
+        }).as_str(),
         options,
         Box::new(|cc| Ok(Box::new(frames::Main::new(&cc.egui_ctx, debug)))),
     ).unwrap();
