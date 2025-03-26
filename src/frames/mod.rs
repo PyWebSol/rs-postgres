@@ -1259,6 +1259,8 @@ impl Main<'_> {
                                         structs::SQLQueryExecutionStatusType::Error(e) => {
                                             ui.separator();
 
+                                            sqlquery_page.output_is_empty = true;
+
                                             let warning_icon = match self.config.settings.theme {
                                                 structs::Theme::Light => self.icons.warning_dark.clone(),
                                                 _ => self.icons.warning_light.clone(),
