@@ -95,11 +95,11 @@ if [ "$add_to_path" = "y" ]; then
 
     if [ "$is_any_updated" = true ]; then
         echo ""
+    else
+        echo "No shell configuration files found."
     fi
+
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 echo "Rs-Postgres is successfully installed."
-
-if [ "$add_to_path" = "y" ]; then
-    echo "Please restart your terminal or start a new shell session for changes to take effect."
-fi
