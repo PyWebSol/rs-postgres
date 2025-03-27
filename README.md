@@ -18,6 +18,13 @@ Modern PostgreSQL client with native GUI, built in Rust using [egui](https://www
 
 ### Prerequisites
 - Rust ([install guide](https://www.rust-lang.org/tools/install))
+- [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+
+### Automatic installation
+```bash
+bash install.sh
+```
+This script will install Rs-Postgres to your system and create a desktop entry.
 
 ### Build from Source
 ```bash
